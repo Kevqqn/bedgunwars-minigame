@@ -18,6 +18,7 @@ public class GameSession {
     private final ServerLevel level;
     private final BlockPos beaconPos;
     private final GameModeType mode;
+    private final UUID hostUuid;
 
     private GamePhase phase = GamePhase.STARTING;
     private boolean active = true;
@@ -27,6 +28,7 @@ public class GameSession {
     private int winnerDelayTicks = 0;
     private String winnerName = null;
 
+    private final Set<UUID> joinedPlayers = new HashSet<>();
     private final Set<UUID> players = new HashSet<>();
     private final Map<UUID, String> playerTeams = new HashMap<>();
     private final Map<UUID, BlockPos> playerBeds = new HashMap<>();
@@ -37,10 +39,17 @@ public class GameSession {
 
     private final Map<UUID, PlayerSnapshot> savedPlayerStates = new HashMap<>();
 
-    public GameSession(ServerLevel level, BlockPos beaconPos, GameModeType mode) {
+    private boolean borderSnapshotCaptured = false;
+    private double originalBorderCenterX;
+    private double originalBorderCenterZ;
+    private double originalBorderSize;
+
+    public GameSession(ServerLevel level, BlockPos beaconPos, GameModeType mode, UUID hostUuid) {
         this.level = level;
         this.beaconPos = beaconPos;
         this.mode = mode;
+        this.hostUuid = hostUuid;
+        this.joinedPlayers.add(hostUuid);
     }
 
     public ServerLevel getLevel() {
@@ -53,6 +62,10 @@ public class GameSession {
 
     public GameModeType getMode() {
         return mode;
+    }
+
+    public UUID getHostUuid() {
+        return hostUuid;
     }
 
     public GamePhase getPhase() {
@@ -93,12 +106,38 @@ public class GameSession {
         this.borderRadius = borderRadius;
     }
 
+    public Set<UUID> getJoinedPlayers() {
+        return joinedPlayers;
+    }
+
+    public boolean addJoinedPlayer(UUID uuid) {
+        return joinedPlayers.add(uuid);
+    }
+
+    public boolean removeJoinedPlayer(UUID uuid) {
+        return joinedPlayers.remove(uuid);
+    }
+
+    public boolean isJoined(UUID uuid) {
+        return joinedPlayers.contains(uuid);
+    }
+
     public Set<UUID> getPlayers() {
         return players;
     }
 
     public void addPlayer(UUID uuid) {
         players.add(uuid);
+    }
+
+    public void resetMatchState() {
+        players.clear();
+        playerTeams.clear();
+        playerBeds.clear();
+        bedOwners.clear();
+        brokenBeds.clear();
+        eliminatedPlayers.clear();
+        pendingRespawnPlayers.clear();
     }
 
     public Map<UUID, String> getPlayerTeams() {
@@ -201,6 +240,34 @@ public class GameSession {
         if (snapshot != null) {
             snapshot.restore(player);
         }
+    }
+
+    public void captureBorderState() {
+        if (borderSnapshotCaptured) {
+            return;
+        }
+
+        var border = level.getWorldBorder();
+        originalBorderCenterX = border.getCenterX();
+        originalBorderCenterZ = border.getCenterZ();
+        originalBorderSize = border.getSize();
+        borderSnapshotCaptured = true;
+    }
+
+    public boolean hasBorderSnapshot() {
+        return borderSnapshotCaptured;
+    }
+
+    public double getOriginalBorderCenterX() {
+        return originalBorderCenterX;
+    }
+
+    public double getOriginalBorderCenterZ() {
+        return originalBorderCenterZ;
+    }
+
+    public double getOriginalBorderSize() {
+        return originalBorderSize;
     }
 
     public static class PlayerSnapshot {

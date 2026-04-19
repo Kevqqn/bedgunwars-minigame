@@ -6,7 +6,6 @@ import com.frosty.bedgunwars.game.GameManager;
 import com.frosty.bedgunwars.game.GameModeType;
 import com.frosty.bedgunwars.game.GamePhase;
 import com.frosty.bedgunwars.game.GameSession;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -20,6 +19,7 @@ import net.minecraft.world.level.block.Blocks;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 
 public class GameCommand {
     public static int startGame(CommandSourceStack source, GameModeType mode) {
@@ -40,12 +40,85 @@ public class GameCommand {
             return 0;
         }
 
-        GameSession session = new GameSession(level, beacon, mode);
+        GameSession session = new GameSession(level, beacon, mode, player.getUUID());
         session.setPhase(GamePhase.STARTING);
         GameManager.start(session);
 
         source.sendSuccess(() -> Component.literal("Game created in " + mode.name() + " mode."), true);
+        source.sendSuccess(() -> Component.literal("You are the host. Other players can now use /game join."), false);
         source.sendSuccess(() -> Component.literal("Set border with /game border <size>"), false);
+        return 1;
+    }
+
+    public static int joinGame(CommandSourceStack source) {
+        if (!GameManager.hasGame()) {
+            source.sendFailure(Component.literal("No active game to join"));
+            return 0;
+        }
+
+        if (!(source.getEntity() instanceof ServerPlayer player)) {
+            source.sendFailure(Component.literal("Must be a player"));
+            return 0;
+        }
+
+        GameSession session = GameManager.getSession();
+        if (session == null || !session.isActive()) {
+            source.sendFailure(Component.literal("No active game to join"));
+            return 0;
+        }
+
+        if (session.getPhase() != GamePhase.STARTING) {
+            source.sendFailure(Component.literal("You can only join before preparation starts"));
+            return 0;
+        }
+
+        if (!player.serverLevel().dimension().equals(session.getLevel().dimension())) {
+            source.sendFailure(Component.literal("You must be in the same dimension as the host to join"));
+            return 0;
+        }
+
+        if (!session.addJoinedPlayer(player.getUUID())) {
+            source.sendFailure(Component.literal("You are already in the lobby"));
+            return 0;
+        }
+
+        source.sendSuccess(() -> Component.literal("You joined the game lobby"), false);
+        return 1;
+    }
+
+    public static int leaveGame(CommandSourceStack source) {
+        if (!GameManager.hasGame()) {
+            source.sendFailure(Component.literal("No active game to leave"));
+            return 0;
+        }
+
+        if (!(source.getEntity() instanceof ServerPlayer player)) {
+            source.sendFailure(Component.literal("Must be a player"));
+            return 0;
+        }
+
+        GameSession session = GameManager.getSession();
+        if (session == null || !session.isActive()) {
+            source.sendFailure(Component.literal("No active game to leave"));
+            return 0;
+        }
+
+        if (session.getPhase() != GamePhase.STARTING) {
+            source.sendFailure(Component.literal("You can only leave before preparation starts"));
+            return 0;
+        }
+
+        if (player.getUUID().equals(session.getHostUuid())) {
+            source.sendFailure(Component.literal("Host cannot leave the lobby. Use /game stop instead."));
+            return 0;
+        }
+
+        if (!session.removeJoinedPlayer(player.getUUID())) {
+            source.sendFailure(Component.literal("You are not in the lobby"));
+            return 0;
+        }
+
+        source.sendSuccess(() -> Component.literal("You left the game lobby"), false);
         return 1;
     }
 
@@ -57,6 +130,11 @@ public class GameCommand {
 
         if (size <= 10) {
             source.sendFailure(Component.literal("Border size must be greater than 10"));
+            return 0;
+        }
+
+        if (!isHost(source)) {
+            source.sendFailure(Component.literal("Only the host can set the border"));
             return 0;
         }
 
@@ -75,7 +153,7 @@ public class GameCommand {
         BorderManager.applyBorder(session);
 
         source.sendSuccess(() -> Component.literal("Border radius set to " + size), true);
-        source.sendSuccess(() -> Component.literal("Now set prep time with /game prep <seconds>"), false);
+        source.sendSuccess(() -> Component.literal("Now let players join with /game join, then run /game prep <seconds>"), false);
         return 1;
     }
 
@@ -95,6 +173,11 @@ public class GameCommand {
             return 0;
         }
 
+        if (!isHost(source)) {
+            source.sendFailure(Component.literal("Only the host can start preparation"));
+            return 0;
+        }
+
         GameSession session = GameManager.getSession();
         if (session == null || !session.isActive()) {
             source.sendFailure(Component.literal("No active game"));
@@ -106,12 +189,13 @@ public class GameCommand {
             return 0;
         }
 
-        List<ServerPlayer> players = new ArrayList<>(player.serverLevel().getServer().getPlayerList().getPlayers());
+        List<ServerPlayer> players = resolveJoinedPlayers(player.serverLevel().getServer(), session);
         if (players.isEmpty()) {
-            source.sendFailure(Component.literal("No players found"));
+            source.sendFailure(Component.literal("No valid players found to start"));
             return 0;
         }
 
+        session.resetMatchState();
         session.setPrepTimeSeconds(seconds);
 
         for (ServerPlayer target : players) {
@@ -134,6 +218,11 @@ public class GameCommand {
             return 0;
         }
 
+        if (!isHost(source)) {
+            source.sendFailure(Component.literal("Only the host can stop the game"));
+            return 0;
+        }
+
         GameSession session = GameManager.getSession();
         if (session == null) {
             source.sendFailure(Component.literal("No active game"));
@@ -150,9 +239,43 @@ public class GameCommand {
         return 1;
     }
 
-    private static void assignPlayers(GameSession session, List<ServerPlayer> players, GameModeType mode) {
-        players.sort(Comparator.comparing(p -> p.getGameProfile().getName()));
+    private static boolean isHost(CommandSourceStack source) {
+        if (!(source.getEntity() instanceof ServerPlayer player)) {
+            return false;
+        }
 
+        GameSession session = GameManager.getSession();
+        return session != null && player.getUUID().equals(session.getHostUuid());
+    }
+
+    private static List<ServerPlayer> resolveJoinedPlayers(MinecraftServer server, GameSession session) {
+        List<ServerPlayer> players = new ArrayList<>();
+        List<UUID> missingPlayers = new ArrayList<>();
+
+        for (UUID uuid : session.getJoinedPlayers()) {
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player == null) {
+                missingPlayers.add(uuid);
+                continue;
+            }
+
+            if (!player.serverLevel().dimension().equals(session.getLevel().dimension())) {
+                missingPlayers.add(uuid);
+                continue;
+            }
+
+            players.add(player);
+        }
+
+        for (UUID uuid : missingPlayers) {
+            session.removeJoinedPlayer(uuid);
+        }
+
+        players.sort(Comparator.comparing(p -> p.getGameProfile().getName()));
+        return players;
+    }
+
+    private static void assignPlayers(GameSession session, List<ServerPlayer> players, GameModeType mode) {
         if (mode == GameModeType.SOLO) {
             for (ServerPlayer player : players) {
                 session.addPlayer(player.getUUID());

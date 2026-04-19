@@ -30,14 +30,21 @@ public class BedGunWars {
     public void onRegisterCommands(RegisterCommandsEvent event) {
         event.getDispatcher().register(
                 Commands.literal("game")
-                        .requires(source -> source.hasPermission(2))
                         .then(Commands.literal("start")
+                                .requires(source -> source.hasPermission(2))
                                 .then(Commands.literal("solo")
                                         .executes(ctx -> GameCommand.startGame(ctx.getSource(), GameModeType.SOLO)))
                                 .then(Commands.literal("teams")
                                         .executes(ctx -> GameCommand.startGame(ctx.getSource(), GameModeType.TEAMS)))
                         )
+                        .then(Commands.literal("join")
+                                .executes(ctx -> GameCommand.joinGame(ctx.getSource()))
+                        )
+                        .then(Commands.literal("leave")
+                                .executes(ctx -> GameCommand.leaveGame(ctx.getSource()))
+                        )
                         .then(Commands.literal("border")
+                                .requires(source -> source.hasPermission(2))
                                 .then(Commands.argument("size", IntegerArgumentType.integer(11))
                                         .executes(ctx -> GameCommand.setBorder(
                                                 ctx.getSource(),
@@ -46,6 +53,7 @@ public class BedGunWars {
                                 )
                         )
                         .then(Commands.literal("prep")
+                                .requires(source -> source.hasPermission(2))
                                 .then(Commands.argument("seconds", IntegerArgumentType.integer(1))
                                         .executes(ctx -> GameCommand.setPrep(
                                                 ctx.getSource(),
@@ -54,6 +62,7 @@ public class BedGunWars {
                                 )
                         )
                         .then(Commands.literal("stop")
+                                .requires(source -> source.hasPermission(2))
                                 .executes(ctx -> GameCommand.stopGame(ctx.getSource()))
                         )
         );

@@ -8,6 +8,8 @@ import java.util.UUID;
 
 public class GameCleanupManager {
     public static void restoreAndEnd(MinecraftServer server, GameSession session, String endMessage) {
+        BorderManager.restoreBorder(session);
+
         for (UUID uuid : session.getPlayers()) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player == null) {
