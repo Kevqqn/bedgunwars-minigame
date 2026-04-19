@@ -1,7 +1,6 @@
 package com.frosty.bedgunwars.game;
 
 public class GameManager {
-
     private static GameSession currentSession;
 
     public static boolean hasGame() {
