@@ -5,7 +5,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
-import net.minecraft.world.level.border.WorldBorder;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -36,11 +35,7 @@ public class GameSession {
     private final Set<UUID> eliminatedPlayers = new HashSet<>();
     private final Set<UUID> pendingRespawnPlayers = new HashSet<>();
 
-    private final Map<UUID, PlayerSnapshot> playerSnapshots = new HashMap<>();
-    private boolean borderSnapshotCaptured = false;
-    private double originalBorderCenterX;
-    private double originalBorderCenterZ;
-    private double originalBorderSize;
+    private final Map<UUID, PlayerSnapshot> savedPlayerStates = new HashMap<>();
 
     public GameSession(ServerLevel level, BlockPos beaconPos, GameModeType mode) {
         this.level = level;
@@ -197,40 +192,15 @@ public class GameSession {
         }
     }
 
-    public void captureBorderState() {
-        if (borderSnapshotCaptured) {
-            return;
-        }
-
-        WorldBorder border = level.getWorldBorder();
-        originalBorderCenterX = border.getCenterX();
-        originalBorderCenterZ = border.getCenterZ();
-        originalBorderSize = border.getSize();
-        borderSnapshotCaptured = true;
-    }
-
-    public boolean hasBorderSnapshot() {
-        return borderSnapshotCaptured;
-    }
-
-    public double getOriginalBorderCenterX() {
-        return originalBorderCenterX;
-    }
-
-    public double getOriginalBorderCenterZ() {
-        return originalBorderCenterZ;
-    }
-
-    public double getOriginalBorderSize() {
-        return originalBorderSize;
-    }
-
     public void savePlayerState(ServerPlayer player) {
-        playerSnapshots.putIfAbsent(player.getUUID(), PlayerSnapshot.capture(player));
+        savedPlayerStates.putIfAbsent(player.getUUID(), PlayerSnapshot.capture(player));
     }
 
-    public PlayerSnapshot getPlayerSnapshot(UUID uuid) {
-        return playerSnapshots.get(uuid);
+    public void restorePlayerState(ServerPlayer player) {
+        PlayerSnapshot snapshot = savedPlayerStates.get(player.getUUID());
+        if (snapshot != null) {
+            snapshot.restore(player);
+        }
     }
 
     public static class PlayerSnapshot {
@@ -242,6 +212,7 @@ public class GameSession {
         private final float xRot;
         private final GameType gameType;
         private final List<ItemStack> inventoryContents;
+        private final int selectedSlot;
         private final float health;
         private final int foodLevel;
         private final float saturationLevel;
@@ -255,6 +226,7 @@ public class GameSession {
                 float xRot,
                 GameType gameType,
                 List<ItemStack> inventoryContents,
+                int selectedSlot,
                 float health,
                 int foodLevel,
                 float saturationLevel
@@ -267,6 +239,7 @@ public class GameSession {
             this.xRot = xRot;
             this.gameType = gameType;
             this.inventoryContents = inventoryContents;
+            this.selectedSlot = selectedSlot;
             this.health = health;
             this.foodLevel = foodLevel;
             this.saturationLevel = saturationLevel;
@@ -287,6 +260,7 @@ public class GameSession {
                     player.getXRot(),
                     player.gameMode.getGameModeForPlayer(),
                     inventoryContents,
+                    player.getInventory().selected,
                     player.getHealth(),
                     player.getFoodData().getFoodLevel(),
                     player.getFoodData().getSaturationLevel()
@@ -297,11 +271,12 @@ public class GameSession {
             player.teleportTo(level, x, y, z, yRot, xRot);
 
             player.getInventory().clearContent();
-            int slotCount = Math.min(player.getInventory().getContainerSize(), inventoryContents.size());
-            for (int slot = 0; slot < slotCount; slot++) {
+            int maxSlots = Math.min(player.getInventory().getContainerSize(), inventoryContents.size());
+            for (int slot = 0; slot < maxSlots; slot++) {
                 player.getInventory().setItem(slot, inventoryContents.get(slot).copy());
             }
 
+            player.getInventory().selected = selectedSlot;
             player.setGameMode(gameType);
             player.setHealth(Math.min(player.getMaxHealth(), Math.max(1.0F, health)));
             player.getFoodData().setFoodLevel(foodLevel);

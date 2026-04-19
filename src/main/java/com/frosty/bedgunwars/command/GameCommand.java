@@ -6,6 +6,7 @@ import com.frosty.bedgunwars.game.GameManager;
 import com.frosty.bedgunwars.game.GameModeType;
 import com.frosty.bedgunwars.game.GamePhase;
 import com.frosty.bedgunwars.game.GameSession;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -112,7 +113,11 @@ public class GameCommand {
         }
 
         session.setPrepTimeSeconds(seconds);
-        savePlayerStates(session, players);
+
+        for (ServerPlayer target : players) {
+            session.savePlayerState(target);
+        }
+
         assignPlayers(session, players, session.getMode());
         teleportPlayersToBeacon(players, session.getLevel(), session.getBeaconPos());
         giveStarterItems(players);
@@ -138,17 +143,11 @@ public class GameCommand {
         GameCleanupManager.restoreAndEnd(
                 source.getServer(),
                 session,
-                "Game stopped. Restoring previous player state."
+                "Game stopped. Restoring player state."
         );
 
         source.sendSuccess(() -> Component.literal("Game stopped"), true);
         return 1;
-    }
-
-    private static void savePlayerStates(GameSession session, List<ServerPlayer> players) {
-        for (ServerPlayer player : players) {
-            session.savePlayerState(player);
-        }
     }
 
     private static void assignPlayers(GameSession session, List<ServerPlayer> players, GameModeType mode) {
@@ -176,7 +175,6 @@ public class GameCommand {
             double x = beacon.getX() + 0.5 + (index % 4);
             double y = beacon.getY() + 2;
             double z = beacon.getZ() + 0.5 + (index / 4);
-
             player.teleportTo(level, x, y, z, player.getYRot(), player.getXRot());
             index++;
         }

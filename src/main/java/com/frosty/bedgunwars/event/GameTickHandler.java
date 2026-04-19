@@ -64,7 +64,7 @@ public class GameTickHandler {
                 GameCleanupManager.restoreAndEnd(
                         event.getServer(),
                         session,
-                        "Game ended. Returning to vanilla gameplay."
+                        "Game ended. Restoring player state."
                 );
             }
         }
