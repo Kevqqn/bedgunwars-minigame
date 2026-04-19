@@ -1,13 +1,12 @@
 package com.frosty.bedgunwars.command;
 
 import com.frosty.bedgunwars.game.BorderManager;
+import com.frosty.bedgunwars.game.GameCleanupManager;
 import com.frosty.bedgunwars.game.GameManager;
 import com.frosty.bedgunwars.game.GameModeType;
 import com.frosty.bedgunwars.game.GamePhase;
 import com.frosty.bedgunwars.game.GameSession;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -22,7 +21,6 @@ import java.util.Comparator;
 import java.util.List;
 
 public class GameCommand {
-
     public static int startGame(CommandSourceStack source, GameModeType mode) {
         if (GameManager.hasGame()) {
             source.sendFailure(Component.literal("Game already running"));
@@ -36,7 +34,6 @@ public class GameCommand {
 
         ServerLevel level = player.serverLevel();
         BlockPos beacon = findNearestBeacon(level, player.blockPosition(), 10);
-
         if (beacon == null) {
             source.sendFailure(Component.literal("No beacon nearby"));
             return 0;
@@ -115,16 +112,14 @@ public class GameCommand {
         }
 
         session.setPrepTimeSeconds(seconds);
-
+        savePlayerStates(session, players);
         assignPlayers(session, players, session.getMode());
-        teleportPlayersToBeacon(players, session.getBeaconPos());
+        teleportPlayersToBeacon(players, session.getLevel(), session.getBeaconPos());
         giveStarterItems(players);
 
         session.setPhase(GamePhase.PREPARATION);
-
         source.sendSuccess(() -> Component.literal("Preparation phase started for " + seconds + " seconds."), true);
         broadcast(player.serverLevel().getServer(), "Preparation phase started! Place your bed now.");
-
         return 1;
     }
 
@@ -134,9 +129,26 @@ public class GameCommand {
             return 0;
         }
 
-        GameManager.end();
+        GameSession session = GameManager.getSession();
+        if (session == null) {
+            source.sendFailure(Component.literal("No active game"));
+            return 0;
+        }
+
+        GameCleanupManager.restoreAndEnd(
+                source.getServer(),
+                session,
+                "Game stopped. Restoring previous player state."
+        );
+
         source.sendSuccess(() -> Component.literal("Game stopped"), true);
         return 1;
+    }
+
+    private static void savePlayerStates(GameSession session, List<ServerPlayer> players) {
+        for (ServerPlayer player : players) {
+            session.savePlayerState(player);
+        }
     }
 
     private static void assignPlayers(GameSession session, List<ServerPlayer> players, GameModeType mode) {
@@ -158,15 +170,14 @@ public class GameCommand {
         }
     }
 
-    private static void teleportPlayersToBeacon(List<ServerPlayer> players, BlockPos beacon) {
+    private static void teleportPlayersToBeacon(List<ServerPlayer> players, ServerLevel level, BlockPos beacon) {
         int index = 0;
-
         for (ServerPlayer player : players) {
             double x = beacon.getX() + 0.5 + (index % 4);
             double y = beacon.getY() + 2;
             double z = beacon.getZ() + 0.5 + (index / 4);
 
-            player.teleportTo(x, y, z);
+            player.teleportTo(level, x, y, z, player.getYRot(), player.getXRot());
             index++;
         }
     }
@@ -177,6 +188,7 @@ public class GameCommand {
             player.getInventory().add(new ItemStack(Items.RED_BED, 1));
             player.getInventory().add(new ItemStack(Items.COOKED_BEEF, 16));
             player.getInventory().add(new ItemStack(Items.STONE_SWORD, 1));
+            player.containerMenu.broadcastChanges();
         }
     }
 

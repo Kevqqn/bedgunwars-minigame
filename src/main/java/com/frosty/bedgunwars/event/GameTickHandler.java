@@ -1,21 +1,20 @@
 package com.frosty.bedgunwars.event;
 
+import com.frosty.bedgunwars.game.GameCleanupManager;
 import com.frosty.bedgunwars.game.GameManager;
 import com.frosty.bedgunwars.game.GamePhase;
 import com.frosty.bedgunwars.game.GameSession;
 import com.frosty.bedgunwars.game.WinManager;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.GameType;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 public class GameTickHandler {
-
     private static int lastAnnouncedSecond = -1;
 
     @SubscribeEvent
@@ -38,7 +37,6 @@ public class GameTickHandler {
             session.decreasePrepTime();
 
             int secondsLeft = session.getPrepTimeTicks() / 20;
-
             if (secondsLeft != lastAnnouncedSecond && secondsLeft % 30 == 0 && secondsLeft > 0) {
                 lastAnnouncedSecond = secondsLeft;
                 broadcast(event.getServer(), "Preparation time left: " + secondsLeft + "s");
@@ -62,9 +60,12 @@ public class GameTickHandler {
             }
 
             session.decreaseWinnerDelay();
-
             if (session.getWinnerDelayTicks() <= 0) {
-                cleanupAndEnd(event.getServer(), session);
+                GameCleanupManager.restoreAndEnd(
+                        event.getServer(),
+                        session,
+                        "Game ended. Returning to vanilla gameplay."
+                );
             }
         }
     }
@@ -75,29 +76,6 @@ public class GameTickHandler {
             player.connection.send(new ClientboundSetTitleTextPacket(Component.literal("Winner")));
             player.connection.send(new ClientboundSetSubtitleTextPacket(Component.literal(winnerName)));
         }
-    }
-
-    private void cleanupAndEnd(MinecraftServer server, GameSession session) {
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            if (!session.getPlayers().contains(player.getUUID())) {
-                continue;
-            }
-
-            player.teleportTo(
-                    session.getLevel(),
-                    session.getBeaconPos().getX() + 0.5,
-                    session.getBeaconPos().getY() + 1.0,
-                    session.getBeaconPos().getZ() + 0.5,
-                    player.getYRot(),
-                    player.getXRot()
-            );
-
-            player.setGameMode(GameType.SURVIVAL);
-        }
-
-        session.end();
-        GameManager.end();
-        broadcast(server, "Game ended. Returning to vanilla gameplay.");
     }
 
     private void broadcast(MinecraftServer server, String message) {
