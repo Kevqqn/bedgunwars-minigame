@@ -20,6 +20,8 @@ public class GameSession {
 
     private int prepTimeTicks = 180 * 20;
     private int borderRadius = 75;
+    private int winnerDelayTicks = 0;
+    private String winnerName = null;
 
     private final Set<UUID> players = new HashSet<>();
     private final Map<UUID, String> playerTeams = new HashMap<>();
@@ -27,6 +29,9 @@ public class GameSession {
     private final Map<UUID, BlockPos> playerBeds = new HashMap<>();
     private final Map<BlockPos, UUID> bedOwners = new HashMap<>();
     private final Set<UUID> brokenBeds = new HashSet<>();
+
+    private final Set<UUID> eliminatedPlayers = new HashSet<>();
+    private final Set<UUID> pendingRespawnPlayers = new HashSet<>();
 
     public GameSession(ServerLevel level, BlockPos beaconPos, GameModeType mode) {
         this.level = level;
@@ -136,5 +141,50 @@ public class GameSession {
 
     public boolean isBedBroken(UUID uuid) {
         return brokenBeds.contains(uuid);
+    }
+
+    public Set<UUID> getEliminatedPlayers() {
+        return eliminatedPlayers;
+    }
+
+    public boolean isEliminated(UUID uuid) {
+        return eliminatedPlayers.contains(uuid);
+    }
+
+    public void eliminatePlayer(UUID uuid) {
+        eliminatedPlayers.add(uuid);
+        pendingRespawnPlayers.remove(uuid);
+    }
+
+    public Set<UUID> getPendingRespawnPlayers() {
+        return pendingRespawnPlayers;
+    }
+
+    public void markPendingRespawn(UUID uuid) {
+        pendingRespawnPlayers.add(uuid);
+    }
+
+    public void clearPendingRespawn(UUID uuid) {
+        pendingRespawnPlayers.remove(uuid);
+    }
+
+    public String getWinnerName() {
+        return winnerName;
+    }
+
+    public void setWinner(String winnerName) {
+        this.winnerName = winnerName;
+        this.phase = GamePhase.WINNER_ANNOUNCED;
+        this.winnerDelayTicks = 60;
+    }
+
+    public int getWinnerDelayTicks() {
+        return winnerDelayTicks;
+    }
+
+    public void decreaseWinnerDelay() {
+        if (winnerDelayTicks > 0) {
+            winnerDelayTicks--;
+        }
     }
 }

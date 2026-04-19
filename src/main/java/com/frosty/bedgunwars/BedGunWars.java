@@ -3,6 +3,8 @@ package com.frosty.bedgunwars;
 import com.frosty.bedgunwars.command.GameCommand;
 import com.frosty.bedgunwars.event.BedEventHandler;
 import com.frosty.bedgunwars.event.GameTickHandler;
+import com.frosty.bedgunwars.event.PlayerDeathHandler;
+import com.frosty.bedgunwars.event.PlayerRespawnHandler;
 import com.frosty.bedgunwars.game.GameModeType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.minecraft.commands.Commands;
@@ -19,6 +21,8 @@ public class BedGunWars {
         MinecraftForge.EVENT_BUS.register(this);
         MinecraftForge.EVENT_BUS.register(new GameTickHandler());
         MinecraftForge.EVENT_BUS.register(new BedEventHandler());
+        MinecraftForge.EVENT_BUS.register(new PlayerDeathHandler());
+        MinecraftForge.EVENT_BUS.register(new PlayerRespawnHandler());
         System.out.println("BedGunWars Loaded");
     }
 
