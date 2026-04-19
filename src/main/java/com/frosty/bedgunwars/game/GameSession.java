@@ -27,6 +27,7 @@ public class GameSession {
     private int borderRadius = 75;
     private int winnerDelayTicks = 0;
     private String winnerName = null;
+    private int matchStartPlayerCount = 0;
 
     private final Set<UUID> joinedPlayers = new HashSet<>();
     private final Set<UUID> players = new HashSet<>();
@@ -106,6 +107,14 @@ public class GameSession {
         this.borderRadius = borderRadius;
     }
 
+    public int getMatchStartPlayerCount() {
+        return matchStartPlayerCount;
+    }
+
+    public void setMatchStartPlayerCount(int matchStartPlayerCount) {
+        this.matchStartPlayerCount = matchStartPlayerCount;
+    }
+
     public Set<UUID> getJoinedPlayers() {
         return joinedPlayers;
     }
@@ -138,6 +147,9 @@ public class GameSession {
         brokenBeds.clear();
         eliminatedPlayers.clear();
         pendingRespawnPlayers.clear();
+        winnerName = null;
+        winnerDelayTicks = 0;
+        matchStartPlayerCount = 0;
     }
 
     public Map<UUID, String> getPlayerTeams() {

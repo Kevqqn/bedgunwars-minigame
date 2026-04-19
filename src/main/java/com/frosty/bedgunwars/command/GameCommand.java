@@ -197,6 +197,7 @@ public class GameCommand {
 
         session.resetMatchState();
         session.setPrepTimeSeconds(seconds);
+        session.setMatchStartPlayerCount(players.size());
 
         for (ServerPlayer target : players) {
             session.savePlayerState(target);
