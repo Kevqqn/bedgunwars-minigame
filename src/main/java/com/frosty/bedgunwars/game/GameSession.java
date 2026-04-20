@@ -209,6 +209,18 @@ public class GameSession {
         return bedOwners.get(pos);
     }
 
+    public void assignSpawns(List<ServerPlayer> players) {
+        int spacing = 3;  // Adjust spawn spacing between players
+        int index = 0;
+
+        for (ServerPlayer player : players) {
+            int xOffset = (index % 2) * spacing;
+            int zOffset = (index / 2) * spacing;
+            player.teleportTo(level, beaconPos.getX() + xOffset, beaconPos.getY() + 2, beaconPos.getZ() + zOffset, player.getYRot(), player.getXRot());
+            index++;
+        }
+    }
+
     public void removePlayerBed(UUID owner) {
         playerBeds.remove(owner);
         bedOwners.entrySet().removeIf(entry -> entry.getValue().equals(owner));
@@ -257,6 +269,10 @@ public class GameSession {
         this.winnerName = winnerName;
         this.phase = GamePhase.WINNER_ANNOUNCED;
         this.winnerDelayTicks = 60;
+    }
+
+    public void setWinnerDelay(int delay) {
+        this.winnerDelayTicks = delay;
     }
 
     public int getWinnerDelayTicks() {

@@ -15,6 +15,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
+import com.mojang.brigadier.arguments.StringArgumentType;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -22,6 +23,8 @@ import java.util.List;
 import java.util.UUID;
 
 public class GameCommand {
+
+    // Starts the game and sets up the session
     public static int startGame(CommandSourceStack source, GameModeType mode) {
         if (GameManager.hasGame()) {
             source.sendFailure(Component.literal("Game already running"));
@@ -50,6 +53,7 @@ public class GameCommand {
         return 1;
     }
 
+    // Joins the game
     public static int joinGame(CommandSourceStack source) {
         if (!GameManager.hasGame()) {
             source.sendFailure(Component.literal("No active game to join"));
@@ -86,6 +90,7 @@ public class GameCommand {
         return 1;
     }
 
+    // Allows the player to leave the game lobby
     public static int leaveGame(CommandSourceStack source) {
         if (!GameManager.hasGame()) {
             source.sendFailure(Component.literal("No active game to leave"));
@@ -122,6 +127,7 @@ public class GameCommand {
         return 1;
     }
 
+    // Set the border size
     public static int setBorder(CommandSourceStack source, int size) {
         if (!GameManager.hasGame()) {
             source.sendFailure(Component.literal("No active game"));
@@ -157,6 +163,7 @@ public class GameCommand {
         return 1;
     }
 
+    // Set the preparation time for the game
     public static int setPrep(CommandSourceStack source, int seconds) {
         if (!GameManager.hasGame()) {
             source.sendFailure(Component.literal("No active game"));
@@ -213,6 +220,7 @@ public class GameCommand {
         return 1;
     }
 
+    // Forcefully stop the game
     public static int stopGame(CommandSourceStack source) {
         if (!GameManager.hasGame()) {
             source.sendFailure(Component.literal("No active game"));
@@ -240,6 +248,7 @@ public class GameCommand {
         return 1;
     }
 
+    // Helper method to check if the source is the host
     private static boolean isHost(CommandSourceStack source) {
         if (!(source.getEntity() instanceof ServerPlayer player)) {
             return false;
@@ -249,6 +258,7 @@ public class GameCommand {
         return session != null && player.getUUID().equals(session.getHostUuid());
     }
 
+    // Helper method to resolve all joined players
     private static List<ServerPlayer> resolveJoinedPlayers(MinecraftServer server, GameSession session) {
         List<ServerPlayer> players = new ArrayList<>();
         List<UUID> missingPlayers = new ArrayList<>();
@@ -276,6 +286,7 @@ public class GameCommand {
         return players;
     }
 
+    // Assign players to teams
     private static void assignPlayers(GameSession session, List<ServerPlayer> players, GameModeType mode) {
         if (mode == GameModeType.SOLO) {
             for (ServerPlayer player : players) {
@@ -293,6 +304,7 @@ public class GameCommand {
         }
     }
 
+    // Teleport players to the beacon
     private static void teleportPlayersToBeacon(List<ServerPlayer> players, ServerLevel level, BlockPos beacon) {
         int index = 0;
         for (ServerPlayer player : players) {
@@ -304,6 +316,7 @@ public class GameCommand {
         }
     }
 
+    // Give starter items to players
     private static void giveStarterItems(List<ServerPlayer> players) {
         for (ServerPlayer player : players) {
             player.getInventory().clearContent();
@@ -314,12 +327,14 @@ public class GameCommand {
         }
     }
 
+    // Broadcast a message to all players
     private static void broadcast(MinecraftServer server, String message) {
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             player.sendSystemMessage(Component.literal(message));
         }
     }
 
+    // Find the nearest beacon
     private static BlockPos findNearestBeacon(ServerLevel level, BlockPos origin, int radius) {
         for (int x = -radius; x <= radius; x++) {
             for (int y = -radius; y <= radius; y++) {
