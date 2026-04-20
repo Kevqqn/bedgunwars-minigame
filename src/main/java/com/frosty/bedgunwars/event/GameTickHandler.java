@@ -9,6 +9,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.event.TickEvent;
+import com.frosty.bedgunwars.game.GamePhase;
+import net.minecraft.world.scores.Scoreboard;
 
 public class GameTickHandler {
     @SubscribeEvent
@@ -24,6 +26,7 @@ public class GameTickHandler {
 
     private void clearScoreboard(MinecraftServer server) {
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            player.getScoreboard().clearDisplay();
+            player.getScoreboard().clearSlot(Scoreboard.BOARD); // Clears the sidebar display
+        }
     }
 }

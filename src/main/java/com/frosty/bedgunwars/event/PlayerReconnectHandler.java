@@ -1,34 +1,40 @@
 package com.frosty.bedgunwars.event;
 
-import com.frosty.bedgunwars.game.GameSession;
 import com.frosty.bedgunwars.game.GameManager;
-import com.frosty.bedgunwars.game.PlayerSnapshot;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.MinecraftServer;
+import com.frosty.bedgunwars.game.GameSession;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameType;
+import net.minecraft.network.chat.Component;
 
+import java.util.UUID;
+
+@Mod.EventBusSubscriber
 public class PlayerReconnectHandler {
     @SubscribeEvent
-    public static void onPlayerReconnect(PlayerLoggedInEvent event) {
-        ServerPlayer player = event.getEntity();
-        GameSession session = GameManager.getSession();
+    public static void onJoin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        if (!GameManager.hasGame()) return;
 
-        if (session == null || !session.isActive()) {
+        GameSession session = GameManager.getSession();
+        UUID uuid = player.getUUID();
+
+        if (session.isEliminated(uuid)) {
+            player.setGameMode(GameType.SPECTATOR);
+            player.sendSystemMessage(Component.literal("You were eliminated"));
             return;
         }
 
-        if (session.isEliminated(player.getUUID())) {
-            // Reconnected player was eliminated - set to spectator
-            player.setGameMode(GameType.SPECTATOR);
-            player.sendSystemMessage(Component.literal("You were eliminated, and are now in spectator mode."));
-        } else {
-            // Restore player to match if they were in the game
-            session.restorePlayerState(player);
-            player.setGameMode(GameType.SURVIVAL);
-            player.sendSystemMessage(Component.literal("Welcome back to the match!"));
+        if (session.getPlayers().contains(uuid)) {
+            if (session.getPendingRespawnPlayers().contains(uuid)) {
+                player.setGameMode(GameType.SPECTATOR);
+                player.sendSystemMessage(Component.literal("Respawning soon"));
+            } else {
+                player.setGameMode(GameType.SURVIVAL);
+                player.sendSystemMessage(Component.literal("Rejoined match"));
+            }
         }
     }
 }

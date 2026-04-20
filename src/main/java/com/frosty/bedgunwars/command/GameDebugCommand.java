@@ -34,7 +34,8 @@ public class GameDebugCommand {
         }
 
         session.eliminatePlayer(target.getUUID());
-        source.sendSuccess(() -> Component.literal(target.getName() + " has been eliminated."), false);
+        final String message = target.getName().getString() + " has been eliminated.";  // Finalizing message variable for lambda
+        source.sendSuccess(() -> Component.literal(message), false);
         return 1;
     }
 
@@ -62,30 +63,6 @@ public class GameDebugCommand {
         GamePhase phase = GamePhase.valueOf(phaseName.toUpperCase());
         session.setPhase(phase);
         source.sendSuccess(() -> Component.literal("Phase set to: " + phaseName), false);
-        return 1;
-    }
-
-    public static int eliminate(CommandSourceStack source) throws CommandSyntaxException {
-        ServerPlayer target = null;
-        try {
-            target = source.getPlayerOrException();
-        } catch (CommandSyntaxException e) {
-            source.sendFailure(Component.literal("Error: Invalid player"));
-            return 0;
-        }
-        GameSession session = GameManager.getSession();
-        if (session == null || !session.isActive()) {
-            source.sendFailure(Component.literal("No active game."));
-            return 0;
-        }
-
-        if (session.getHostUuid().equals(target.getUUID())) {
-            source.sendFailure(Component.literal("Cannot eliminate the host."));
-            return 0;
-        }
-
-        session.eliminatePlayer(target.getUUID());
-        source.sendSuccess(() -> Component.literal(target.getName() + " has been eliminated."), false);
         return 1;
     }
 }

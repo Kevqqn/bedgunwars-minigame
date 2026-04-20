@@ -24,6 +24,7 @@ public class PlayerSnapshot {
         this.selectedSlot = selectedSlot;
     }
 
+    // Captures the player's current state (position, game mode, inventory, etc.)
     public static PlayerSnapshot capture(ServerPlayer player) {
         return new PlayerSnapshot(
                 player.getX(), player.getY(), player.getZ(),
@@ -33,8 +34,9 @@ public class PlayerSnapshot {
         );
     }
 
+    // Restores the player's state (teleport, inventory, game mode, etc.)
     public void restore(ServerPlayer player) {
-        player.teleportTo(player.getLevel(), x, y, z, yaw, pitch);
+        player.teleportTo(player.level, x, y, z, yaw, pitch);  // Correct method for Forge 1.20.1
         player.setGameMode(gameType);
         player.getInventory().clearContent();
         for (int i = 0; i < inventory.size(); i++) {
