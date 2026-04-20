@@ -152,6 +152,24 @@ public class GameSession {
         matchStartPlayerCount = 0;
     }
 
+    public void handlePlayerDisconnect(UUID uuid, boolean eliminate) {
+        joinedPlayers.remove(uuid);
+        players.remove(uuid);
+        pendingRespawnPlayers.remove(uuid);
+
+        if (eliminate) {
+            eliminatedPlayers.add(uuid);
+        }
+
+        playerTeams.remove(uuid);
+
+        if (playerBeds.containsKey(uuid)) {
+            removePlayerBed(uuid);
+        }
+
+        brokenBeds.remove(uuid);
+    }
+
     public Map<UUID, String> getPlayerTeams() {
         return playerTeams;
     }
