@@ -190,6 +190,14 @@ public class GameSession {
         return playerBeds.get(uuid);
     }
 
+    public boolean hasSnapshot(UUID uuid) {
+        return savedPlayerStates.containsKey(uuid);
+    }
+
+    public Map<UUID, PlayerSnapshot> getSavedSnapshots() {
+        return savedPlayerStates;
+    }
+
     public void setPlayerBed(UUID uuid, BlockPos footPos, BlockPos headPos) {
         playerBeds.put(uuid, footPos);
         bedOwners.put(footPos, uuid);
