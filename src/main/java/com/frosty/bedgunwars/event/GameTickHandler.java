@@ -13,6 +13,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import com.frosty.bedgunwars.ui.GameScoreboard;
 
 public class GameTickHandler {
     private static int lastAnnouncedSecond = -1;
@@ -51,8 +52,10 @@ public class GameTickHandler {
 
         if (session.getPhase() == GamePhase.ACTIVE) {
             WinManager.checkWinner(session);
+            GameScoreboard.update(session);
             return;
         }
+
 
         if (session.getPhase() == GamePhase.WINNER_ANNOUNCED) {
             if (session.getWinnerDelayTicks() == 60) {
