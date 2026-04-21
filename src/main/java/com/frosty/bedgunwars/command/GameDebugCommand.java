@@ -53,6 +53,41 @@ public class GameDebugCommand {
         return 1;
     }
 
+    public static int status(CommandSourceStack source) {
+        if (!(source.getEntity() instanceof ServerPlayer player)) {
+            source.sendFailure(Component.literal("Must be a player."));
+            return 0;
+        }
+
+        GameSession session = GameManager.getSession();
+        if (session == null || !session.isActive()) {
+            source.sendFailure(Component.literal("No active game."));
+            return 0;
+        }
+
+        if (!session.getHostUuid().equals(player.getUUID())) {
+            source.sendFailure(Component.literal("Only the host can use debug commands."));
+            return 0;
+        }
+
+        GamePhase phase = session.getPhase();
+        int alivePlayers = (int) session.getPlayers().stream()
+                .filter(uuid -> !session.isEliminated(uuid))
+                .count();
+        int totalPlayers = session.getMatchStartPlayerCount();
+        int prepTicksLeft = session.getPrepTimeTicks();
+        int prepSecondsLeft = prepTicksLeft / 20;
+
+        source.sendSuccess(() -> Component.literal("Game status"), false);
+        source.sendSuccess(() -> Component.literal("Phase: " + phase.name()), false);
+        source.sendSuccess(() -> Component.literal("Mode: " + session.getMode().name()), false);
+        source.sendSuccess(() -> Component.literal("Players alive: " + alivePlayers + " / " + totalPlayers), false);
+        source.sendSuccess(() -> Component.literal("Prep time left: " + prepSecondsLeft + "s (" + prepTicksLeft + " ticks)"), false);
+        source.sendSuccess(() -> Component.literal("Winner: " + (session.getWinnerName() != null ? session.getWinnerName() : "none")), false);
+        source.sendSuccess(() -> Component.literal("Border radius: " + session.getBorderRadius()), false);
+        return 1;
+    }
+
     public static int setPhase(CommandSourceStack source, String phaseName) {
         GameSession session = GameManager.getSession();
         if (session == null || !session.isActive()) {
