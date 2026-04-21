@@ -26,7 +26,7 @@ public class GameTickHandler {
 
     private void clearScoreboard(MinecraftServer server) {
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            player.getScoreboard().clearSlot(Scoreboard.BOARD); // Clears the sidebar display
+            player.getScoreboard().setDisplayObjective(Scoreboard.DISPLAY_SLOT_SIDEBAR, null); // Clears the sidebar display
         }
     }
 }

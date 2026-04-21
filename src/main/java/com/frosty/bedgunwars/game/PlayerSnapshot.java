@@ -24,7 +24,7 @@ public class PlayerSnapshot {
         this.selectedSlot = selectedSlot;
     }
 
-    // Captures the player's current state (position, game mode, inventory, etc.)
+    // saves the player current state before a match (pos, game mode, inventory)
     public static PlayerSnapshot capture(ServerPlayer player) {
         return new PlayerSnapshot(
                 player.getX(), player.getY(), player.getZ(),
@@ -34,9 +34,9 @@ public class PlayerSnapshot {
         );
     }
 
-    // Restores the player's state (teleport, inventory, game mode, etc.)
+    // Restore player state (pos, inventory, game mode, etc bcs i forgot)
     public void restore(ServerPlayer player) {
-        player.teleportTo(player.level, x, y, z, yaw, pitch);  // Correct method for Forge 1.20.1
+        player.teleportTo(player.serverLevel(), x, y, z, yaw, pitch);  // dont use private, its method calls not a field.
         player.setGameMode(gameType);
         player.getInventory().clearContent();
         for (int i = 0; i < inventory.size(); i++) {
