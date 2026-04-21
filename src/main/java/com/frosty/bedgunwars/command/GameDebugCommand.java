@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 
 public class GameDebugCommand {
 
-    // /game debug eliminate [name] — eliminates a player, host included
+    // /game debug eliminate [name] — only kills the player, elimination handled by PlayerDeathHandler
     public static int eliminate(CommandSourceStack source, String targetName) {
         GameSession session = GameManager.getSession();
         if (session == null || !session.isActive()) {
@@ -42,14 +42,13 @@ public class GameDebugCommand {
             return 0;
         }
 
-        session.eliminatePlayer(target.getUUID());
-        target.sendSystemMessage(Component.literal("You have been eliminated by the host (debug)."));
-        source.sendSuccess(() -> Component.literal(target.getName().getString() + " has been eliminated."), false);
-        WinManager.checkWinner(session);
+        // Only kill — PlayerDeathHandler will handle elimination logic based on bed state
+        target.hurt(target.damageSources().magic(), Float.MAX_VALUE);
+        source.sendSuccess(() -> Component.literal("Killed " + target.getName().getString() + " (bed state determines elimination)."), false);
         return 1;
     }
 
-    // /game debug eliminatebed [name] — breaks bed in world, kills, and eliminates
+    // /game debug eliminatebed [name] — breaks bed (no drop), kills; PlayerDeathHandler handles elimination
     public static int eliminateBed(CommandSourceStack source, String targetName) {
         GameSession session = GameManager.getSession();
         if (session == null || !session.isActive()) {
@@ -69,17 +68,17 @@ public class GameDebugCommand {
 
         UUID uuid = target.getUUID();
 
-        // Break bed blocks in the world
+        // Break bed blocks without dropping items — flag 18 = update (2) + suppress drops (16)
         BlockPos footPos = session.getPlayerBed(uuid);
         if (footPos != null) {
             BlockState footState = session.getLevel().getBlockState(footPos);
             if (footState.getBlock() instanceof BedBlock) {
                 Direction facing = footState.getValue(BedBlock.FACING);
                 BlockPos headPos = footPos.relative(facing);
-                session.getLevel().setBlock(footPos, Blocks.AIR.defaultBlockState(), 3);
+                session.getLevel().setBlock(footPos, Blocks.AIR.defaultBlockState(), 18);
                 BlockState headState = session.getLevel().getBlockState(headPos);
                 if (headState.getBlock() instanceof BedBlock) {
-                    session.getLevel().setBlock(headPos, Blocks.AIR.defaultBlockState(), 3);
+                    session.getLevel().setBlock(headPos, Blocks.AIR.defaultBlockState(), 18);
                 }
             }
             session.breakBed(uuid);
@@ -88,16 +87,13 @@ public class GameDebugCommand {
             source.sendSuccess(() -> Component.literal(targetName + " had no placed bed — skipping bed break."), false);
         }
 
-        // Kill and eliminate
+        // Kill — PlayerDeathHandler will see bed is broken and permanently eliminate
         target.hurt(target.damageSources().magic(), Float.MAX_VALUE);
-        session.eliminatePlayer(uuid);
-        target.sendSystemMessage(Component.literal("You have been eliminated by the host (debug)."));
-        source.sendSuccess(() -> Component.literal(targetName + "'s bed was broken and they were eliminated."), false);
-        WinManager.checkWinner(session);
+        source.sendSuccess(() -> Component.literal(targetName + "'s bed was broken and they were killed."), false);
         return 1;
     }
 
-    // /game debug forcewin [name] — forces a specific in-game player to win
+    // /game debug forcewin [name]
     public static int forceWin(CommandSourceStack source, String winnerName) {
         GameSession session = GameManager.getSession();
         if (session == null || !session.isActive()) {
@@ -116,13 +112,20 @@ public class GameDebugCommand {
         }
 
         String displayName = target.getName().getString();
+
+        // Send title screen to all players
+        for (UUID uuid : session.getPlayers()) {
+            ServerPlayer p = source.getServer().getPlayerList().getPlayer(uuid);
+            if (p != null) WinManager.sendTitle(p, displayName + " won the game!", "(Debug force-win)");
+        }
+
         session.setWinner(displayName);
         broadcast(source.getServer(), displayName + " wins! (Debug force-win)");
         source.sendSuccess(() -> Component.literal("Force-win set for: " + displayName), false);
         return 1;
     }
 
-    // /game debug setphase [phase] — with validation and safe ACTIVE default timer
+    // /game debug setphase [phase]
     public static int setPhase(CommandSourceStack source, String phaseName) {
         GameSession session = GameManager.getSession();
         if (session == null || !session.isActive()) {
@@ -145,7 +148,6 @@ public class GameDebugCommand {
             return 0;
         }
 
-        // If forcing to ACTIVE and match timer is spent, give a safe default
         if (phase == GamePhase.ACTIVE && session.getMatchTimeTicks() <= 0) {
             session.setMatchTimeSeconds(600);
         }
@@ -155,7 +157,7 @@ public class GameDebugCommand {
         return 1;
     }
 
-    // /game debug status — shows current game state to host
+    // /game debug status
     public static int status(CommandSourceStack source) {
         if (!(source.getEntity() instanceof ServerPlayer player)) {
             source.sendFailure(Component.literal("Must be a player."));
@@ -197,9 +199,7 @@ public class GameDebugCommand {
     private static ServerPlayer findInGamePlayer(MinecraftServer server, GameSession session, String name) {
         for (UUID uuid : session.getPlayers()) {
             ServerPlayer p = server.getPlayerList().getPlayer(uuid);
-            if (p != null && p.getName().getString().equalsIgnoreCase(name)) {
-                return p;
-            }
+            if (p != null && p.getName().getString().equalsIgnoreCase(name)) return p;
         }
         return null;
     }

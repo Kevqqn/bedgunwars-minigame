@@ -1,24 +1,23 @@
 package com.frosty.bedgunwars.game;
 
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
+import net.minecraft.server.level.ServerPlayer;
+
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
 public class WinManager {
+
     public static void checkWinner(GameSession session) {
-        if (session == null || !session.isActive()) {
-            return;
-        }
+        if (session == null || !session.isActive()) return;
+        if (session.getPhase() != GamePhase.ACTIVE) return;
 
-        if (session.getPhase() != GamePhase.ACTIVE) {
-            return;
-        }
-
-        // Debug safeguard:
-        // if the match started with only 1 player, do not auto-end immediately.
-        if (session.getMatchStartPlayerCount() <= 1) {
-            return;
-        }
+        // Safeguard: single-player testing — don't auto-end immediately
+        if (session.getMatchStartPlayerCount() <= 1) return;
 
         if (session.getMode() == GameModeType.SOLO) {
             checkSoloWinner(session);
@@ -32,24 +31,16 @@ public class WinManager {
         int aliveCount = 0;
 
         for (UUID uuid : session.getPlayers()) {
-            if (session.isEliminated(uuid)) {
-                continue;
-            }
-
+            if (session.isEliminated(uuid)) continue;
             aliveCount++;
             lastAlive = uuid;
-
-            if (aliveCount > 1) {
-                return;
-            }
+            if (aliveCount > 1) return;
         }
 
         if (aliveCount == 1 && lastAlive != null) {
             String winnerName = session.getPlayerTeam(lastAlive);
-            if (winnerName == null) {
-                winnerName = "Unknown";
-            }
-            session.setWinner(winnerName);
+            if (winnerName == null) winnerName = "Unknown";
+            announceWinner(session, winnerName);
         }
     }
 
@@ -57,23 +48,33 @@ public class WinManager {
         Set<String> aliveTeams = new HashSet<>();
 
         for (UUID uuid : session.getPlayers()) {
-            if (session.isEliminated(uuid)) {
-                continue;
-            }
-
+            if (session.isEliminated(uuid)) continue;
             String team = session.getPlayerTeam(uuid);
-            if (team != null) {
-                aliveTeams.add(team);
-            }
-
-            if (aliveTeams.size() > 1) {
-                return;
-            }
+            if (team != null) aliveTeams.add(team);
+            if (aliveTeams.size() > 1) return;
         }
 
         if (aliveTeams.size() == 1) {
-            String winnerTeam = aliveTeams.iterator().next();
-            session.setWinner(winnerTeam + " Team");
+            String winnerTeam = aliveTeams.iterator().next() + " Team";
+            announceWinner(session, winnerTeam);
         }
+    }
+
+    private static void announceWinner(GameSession session, String winnerName) {
+        session.setWinner(winnerName);
+
+        // Send title screen to all players in the game
+        for (UUID uuid : session.getPlayers()) {
+            ServerPlayer player = session.getLevel().getServer().getPlayerList().getPlayer(uuid);
+            if (player == null) continue;
+            sendTitle(player, winnerName + " won the game!", "");
+        }
+    }
+
+    public static void sendTitle(ServerPlayer player, String title, String subtitle) {
+        // Timing: fadeIn=10, stay=70, fadeOut=20 ticks
+        player.connection.send(new ClientboundSetTitlesAnimationPacket(10, 70, 20));
+        player.connection.send(new ClientboundSetTitleTextPacket(Component.literal(title)));
+        player.connection.send(new ClientboundSetSubtitleTextPacket(Component.literal(subtitle)));
     }
 }

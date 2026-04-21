@@ -17,7 +17,7 @@ public class GameCleanupManager {
         // Remove boss bar
         BossBarManager.remove(server);
 
-        // Remove all bed blocks placed during the game
+        // Remove all bed blocks placed during the game — flag 18 suppresses item drops
         removeGameBeds(session);
 
         // Restore world border
@@ -43,15 +43,14 @@ public class GameCleanupManager {
             BlockState footState = session.getLevel().getBlockState(footPos);
             if (!(footState.getBlock() instanceof BedBlock)) continue;
 
-            // Remove foot block
-            session.getLevel().setBlock(footPos, Blocks.AIR.defaultBlockState(), 3);
+            // Flag 18 = block update (2) + suppress drops (16)
+            session.getLevel().setBlock(footPos, Blocks.AIR.defaultBlockState(), 18);
 
-            // Remove head block (one block in the facing direction from foot)
             Direction facing = footState.getValue(BedBlock.FACING);
             BlockPos headPos = footPos.relative(facing);
             BlockState headState = session.getLevel().getBlockState(headPos);
             if (headState.getBlock() instanceof BedBlock) {
-                session.getLevel().setBlock(headPos, Blocks.AIR.defaultBlockState(), 3);
+                session.getLevel().setBlock(headPos, Blocks.AIR.defaultBlockState(), 18);
             }
         }
     }
