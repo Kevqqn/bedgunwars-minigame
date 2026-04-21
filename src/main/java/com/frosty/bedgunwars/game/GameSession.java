@@ -24,6 +24,9 @@ public class GameSession {
     private boolean active = true;
 
     private int prepTimeTicks = 180 * 20;
+    private int initialPrepTicks = 180 * 20;
+    private int matchTimeTicks = 600 * 20;
+    private int initialMatchTicks = 600 * 20;
     private int borderRadius = 75;
     private int winnerDelayTicks = 0;
     private String winnerName = null;
@@ -53,90 +56,160 @@ public class GameSession {
         this.joinedPlayers.add(hostUuid);
     }
 
-    public ServerLevel getLevel() {
-        return level;
-    }
+    public ServerLevel getLevel() { return level; }
+    public BlockPos getBeaconPos() { return beaconPos; }
+    public GameModeType getMode() { return mode; }
+    public UUID getHostUuid() { return hostUuid; }
 
-    public BlockPos getBeaconPos() {
-        return beaconPos;
-    }
+    public GamePhase getPhase() { return phase; }
+    public void setPhase(GamePhase phase) { this.phase = phase; }
 
-    public GameModeType getMode() {
-        return mode;
-    }
+    public boolean isActive() { return active; }
+    public void end() { this.active = false; }
 
-    public UUID getHostUuid() {
-        return hostUuid;
-    }
-
-    public GamePhase getPhase() {
-        return phase;
-    }
-
-    public void setPhase(GamePhase phase) {
-        this.phase = phase;
-    }
-
-    public boolean isActive() {
-        return active;
-    }
-
-    public void end() {
-        this.active = false;
-    }
-
-    public int getPrepTimeTicks() {
-        return prepTimeTicks;
-    }
+    // --- Prep timer ---
+    public int getPrepTimeTicks() { return prepTimeTicks; }
+    public int getInitialPrepTicks() { return initialPrepTicks; }
 
     public void setPrepTimeSeconds(int seconds) {
         this.prepTimeTicks = seconds * 20;
+        this.initialPrepTicks = seconds * 20;
     }
 
     public void decreasePrepTime() {
-        if (prepTimeTicks > 0) {
-            prepTimeTicks--;
-        }
+        if (prepTimeTicks > 0) prepTimeTicks--;
     }
 
-    public int getBorderRadius() {
-        return borderRadius;
+    // --- Match timer ---
+    public int getMatchTimeTicks() { return matchTimeTicks; }
+    public int getInitialMatchTicks() { return initialMatchTicks; }
+
+    public void setMatchTimeSeconds(int seconds) {
+        this.matchTimeTicks = seconds * 20;
+        this.initialMatchTicks = seconds * 20;
     }
 
-    public void setBorderRadius(int borderRadius) {
-        this.borderRadius = borderRadius;
+    public void decreaseMatchTime() {
+        if (matchTimeTicks > 0) matchTimeTicks--;
     }
 
-    public int getMatchStartPlayerCount() {
-        return matchStartPlayerCount;
+    // --- Border ---
+    public int getBorderRadius() { return borderRadius; }
+    public void setBorderRadius(int borderRadius) { this.borderRadius = borderRadius; }
+
+    // --- Player counts ---
+    public int getMatchStartPlayerCount() { return matchStartPlayerCount; }
+    public void setMatchStartPlayerCount(int count) { this.matchStartPlayerCount = count; }
+
+    // --- Joined players ---
+    public Set<UUID> getJoinedPlayers() { return joinedPlayers; }
+    public boolean addJoinedPlayer(UUID uuid) { return joinedPlayers.add(uuid); }
+    public boolean removeJoinedPlayer(UUID uuid) { return joinedPlayers.remove(uuid); }
+    public boolean isJoined(UUID uuid) { return joinedPlayers.contains(uuid); }
+
+    // --- Active players ---
+    public Set<UUID> getPlayers() { return players; }
+    public void addPlayer(UUID uuid) { players.add(uuid); }
+
+    // --- Teams ---
+    public Map<UUID, String> getPlayerTeams() { return playerTeams; }
+    public void setPlayerTeam(UUID uuid, String teamName) { playerTeams.put(uuid, teamName); }
+    public String getPlayerTeam(UUID uuid) { return playerTeams.get(uuid); }
+
+    // --- Beds ---
+    public boolean hasPlacedBed(UUID uuid) { return playerBeds.containsKey(uuid); }
+    public BlockPos getPlayerBed(UUID uuid) { return playerBeds.get(uuid); }
+    public Map<UUID, BlockPos> getAllPlayerBeds() { return playerBeds; }
+
+    public void setPlayerBed(UUID uuid, BlockPos footPos, BlockPos headPos) {
+        playerBeds.put(uuid, footPos);
+        bedOwners.put(footPos, uuid);
+        bedOwners.put(headPos, uuid);
+        brokenBeds.remove(uuid);
     }
 
-    public void setMatchStartPlayerCount(int matchStartPlayerCount) {
-        this.matchStartPlayerCount = matchStartPlayerCount;
+    public UUID getBedOwner(BlockPos pos) { return bedOwners.get(pos); }
+
+    public void removePlayerBed(UUID owner) {
+        playerBeds.remove(owner);
+        bedOwners.entrySet().removeIf(e -> e.getValue().equals(owner));
+        brokenBeds.remove(owner);
     }
 
-    public Set<UUID> getJoinedPlayers() {
-        return joinedPlayers;
+    public void breakBed(UUID owner) {
+        brokenBeds.add(owner);
+        bedOwners.entrySet().removeIf(e -> e.getValue().equals(owner));
     }
 
-    public boolean addJoinedPlayer(UUID uuid) {
-        return joinedPlayers.add(uuid);
+    public boolean isBedBroken(UUID uuid) { return brokenBeds.contains(uuid); }
+
+    // --- Elimination ---
+    public Set<UUID> getEliminatedPlayers() { return eliminatedPlayers; }
+    public boolean isEliminated(UUID uuid) { return eliminatedPlayers.contains(uuid); }
+
+    public void eliminatePlayer(UUID uuid) {
+        eliminatedPlayers.add(uuid);
+        pendingRespawnPlayers.remove(uuid);
     }
 
-    public boolean removeJoinedPlayer(UUID uuid) {
-        return joinedPlayers.remove(uuid);
+    // --- Respawn ---
+    public Set<UUID> getPendingRespawnPlayers() { return pendingRespawnPlayers; }
+    public void markPendingRespawn(UUID uuid) { pendingRespawnPlayers.add(uuid); }
+    public void clearPendingRespawn(UUID uuid) { pendingRespawnPlayers.remove(uuid); }
+
+    // --- Winner ---
+    public String getWinnerName() { return winnerName; }
+
+    public void setWinner(String winnerName) {
+        this.winnerName = winnerName;
+        this.phase = GamePhase.WINNER_ANNOUNCED;
+        this.winnerDelayTicks = 60;
     }
 
-    public boolean isJoined(UUID uuid) {
-        return joinedPlayers.contains(uuid);
+    public void setWinnerDelay(int delay) { this.winnerDelayTicks = delay; }
+    public int getWinnerDelayTicks() { return winnerDelayTicks; }
+
+    public void decreaseWinnerDelay() {
+        if (winnerDelayTicks > 0) winnerDelayTicks--;
     }
 
-    public Set<UUID> getPlayers() {
-        return players;
+    // --- Snapshots ---
+    public boolean hasSnapshot(UUID uuid) { return savedPlayerStates.containsKey(uuid); }
+    public Map<UUID, PlayerSnapshot> getSavedSnapshots() { return savedPlayerStates; }
+
+    public void savePlayerState(ServerPlayer player) {
+        savedPlayerStates.putIfAbsent(player.getUUID(), PlayerSnapshot.capture(player));
     }
 
-    public void addPlayer(UUID uuid) {
-        players.add(uuid);
+    public void restorePlayerState(ServerPlayer player) {
+        PlayerSnapshot snapshot = savedPlayerStates.get(player.getUUID());
+        if (snapshot != null) snapshot.restore(player);
+    }
+
+    // --- Border snapshot ---
+    public void captureBorderState() {
+        if (borderSnapshotCaptured) return;
+        var border = level.getWorldBorder();
+        originalBorderCenterX = border.getCenterX();
+        originalBorderCenterZ = border.getCenterZ();
+        originalBorderSize = border.getSize();
+        borderSnapshotCaptured = true;
+    }
+
+    public boolean hasBorderSnapshot() { return borderSnapshotCaptured; }
+    public double getOriginalBorderCenterX() { return originalBorderCenterX; }
+    public double getOriginalBorderCenterZ() { return originalBorderCenterZ; }
+    public double getOriginalBorderSize() { return originalBorderSize; }
+
+    // --- Disconnect ---
+    public void handlePlayerDisconnect(UUID uuid, boolean eliminate) {
+        joinedPlayers.remove(uuid);
+        players.remove(uuid);
+        pendingRespawnPlayers.remove(uuid);
+        if (eliminate) eliminatedPlayers.add(uuid);
+        playerTeams.remove(uuid);
+        if (playerBeds.containsKey(uuid)) removePlayerBed(uuid);
+        brokenBeds.remove(uuid);
     }
 
     public void resetMatchState() {
@@ -152,67 +225,9 @@ public class GameSession {
         matchStartPlayerCount = 0;
     }
 
-    public void handlePlayerDisconnect(UUID uuid, boolean eliminate) {
-        joinedPlayers.remove(uuid);
-        players.remove(uuid);
-        pendingRespawnPlayers.remove(uuid);
-
-        if (eliminate) {
-            eliminatedPlayers.add(uuid);
-        }
-
-        playerTeams.remove(uuid);
-
-        if (playerBeds.containsKey(uuid)) {
-            removePlayerBed(uuid);
-        }
-
-        brokenBeds.remove(uuid);
-    }
-
-    public Map<UUID, String> getPlayerTeams() {
-        return playerTeams;
-    }
-
-    public void setPlayerTeam(UUID uuid, String teamName) {
-        playerTeams.put(uuid, teamName);
-    }
-
-    public String getPlayerTeam(UUID uuid) {
-        return playerTeams.get(uuid);
-    }
-
-    public boolean hasPlacedBed(UUID uuid) {
-        return playerBeds.containsKey(uuid);
-    }
-
-    public BlockPos getPlayerBed(UUID uuid) {
-        return playerBeds.get(uuid);
-    }
-
-    public boolean hasSnapshot(UUID uuid) {
-        return savedPlayerStates.containsKey(uuid);
-    }
-
-    public Map<UUID, PlayerSnapshot> getSavedSnapshots() {
-        return savedPlayerStates;
-    }
-
-    public void setPlayerBed(UUID uuid, BlockPos footPos, BlockPos headPos) {
-        playerBeds.put(uuid, footPos);
-        bedOwners.put(footPos, uuid);
-        bedOwners.put(headPos, uuid);
-        brokenBeds.remove(uuid);
-    }
-
-    public UUID getBedOwner(BlockPos pos) {
-        return bedOwners.get(pos);
-    }
-
     public void assignSpawns(List<ServerPlayer> players) {
-        int spacing = 3;  // Adjust spawn spacing between players
+        int spacing = 3;
         int index = 0;
-
         for (ServerPlayer player : players) {
             int xOffset = (index % 2) * spacing;
             int zOffset = (index / 2) * spacing;
@@ -221,116 +236,11 @@ public class GameSession {
         }
     }
 
-    public void removePlayerBed(UUID owner) {
-        playerBeds.remove(owner);
-        bedOwners.entrySet().removeIf(entry -> entry.getValue().equals(owner));
-        brokenBeds.remove(owner);
-    }
-
-    public void breakBed(UUID owner) {
-        brokenBeds.add(owner);
-        bedOwners.entrySet().removeIf(entry -> entry.getValue().equals(owner));
-    }
-
-    public boolean isBedBroken(UUID uuid) {
-        return brokenBeds.contains(uuid);
-    }
-
-    public Set<UUID> getEliminatedPlayers() {
-        return eliminatedPlayers;
-    }
-
-    public boolean isEliminated(UUID uuid) {
-        return eliminatedPlayers.contains(uuid);
-    }
-
-    public void eliminatePlayer(UUID uuid) {
-        eliminatedPlayers.add(uuid);
-        pendingRespawnPlayers.remove(uuid);
-    }
-
-    public Set<UUID> getPendingRespawnPlayers() {
-        return pendingRespawnPlayers;
-    }
-
-    public void markPendingRespawn(UUID uuid) {
-        pendingRespawnPlayers.add(uuid);
-    }
-
-    public void clearPendingRespawn(UUID uuid) {
-        pendingRespawnPlayers.remove(uuid);
-    }
-
-    public String getWinnerName() {
-        return winnerName;
-    }
-
-    public void setWinner(String winnerName) {
-        this.winnerName = winnerName;
-        this.phase = GamePhase.WINNER_ANNOUNCED;
-        this.winnerDelayTicks = 60;
-    }
-
-    public void setWinnerDelay(int delay) {
-        this.winnerDelayTicks = delay;
-    }
-
-    public int getWinnerDelayTicks() {
-        return winnerDelayTicks;
-    }
-
-    public void decreaseWinnerDelay() {
-        if (winnerDelayTicks > 0) {
-            winnerDelayTicks--;
-        }
-    }
-
-    public void savePlayerState(ServerPlayer player) {
-        savedPlayerStates.putIfAbsent(player.getUUID(), PlayerSnapshot.capture(player));
-    }
-
-    public void restorePlayerState(ServerPlayer player) {
-        PlayerSnapshot snapshot = savedPlayerStates.get(player.getUUID());
-        if (snapshot != null) {
-            snapshot.restore(player);
-        }
-    }
-
-    public void captureBorderState() {
-        if (borderSnapshotCaptured) {
-            return;
-        }
-
-        var border = level.getWorldBorder();
-        originalBorderCenterX = border.getCenterX();
-        originalBorderCenterZ = border.getCenterZ();
-        originalBorderSize = border.getSize();
-        borderSnapshotCaptured = true;
-    }
-
-    public boolean hasBorderSnapshot() {
-        return borderSnapshotCaptured;
-    }
-
-    public double getOriginalBorderCenterX() {
-        return originalBorderCenterX;
-    }
-
-    public double getOriginalBorderCenterZ() {
-        return originalBorderCenterZ;
-    }
-
-    public double getOriginalBorderSize() {
-        return originalBorderSize;
-    }
-
+    // --- Inner PlayerSnapshot ---
     public static class PlayerSnapshot {
         private final ServerLevel level;
-        private final double x;
-        private final double y;
-        private final double z;
-        private final float yRot;
-        private final float xRot;
+        private final double x, y, z;
+        private final float yRot, xRot;
         private final GameType gameType;
         private final List<ItemStack> inventoryContents;
         private final int selectedSlot;
@@ -338,26 +248,13 @@ public class GameSession {
         private final int foodLevel;
         private final float saturationLevel;
 
-        private PlayerSnapshot(
-                ServerLevel level,
-                double x,
-                double y,
-                double z,
-                float yRot,
-                float xRot,
-                GameType gameType,
-                List<ItemStack> inventoryContents,
-                int selectedSlot,
-                float health,
-                int foodLevel,
-                float saturationLevel
-        ) {
+        private PlayerSnapshot(ServerLevel level, double x, double y, double z,
+                               float yRot, float xRot, GameType gameType,
+                               List<ItemStack> inventoryContents, int selectedSlot,
+                               float health, int foodLevel, float saturationLevel) {
             this.level = level;
-            this.x = x;
-            this.y = y;
-            this.z = z;
-            this.yRot = yRot;
-            this.xRot = xRot;
+            this.x = x; this.y = y; this.z = z;
+            this.yRot = yRot; this.xRot = xRot;
             this.gameType = gameType;
             this.inventoryContents = inventoryContents;
             this.selectedSlot = selectedSlot;
@@ -367,20 +264,16 @@ public class GameSession {
         }
 
         public static PlayerSnapshot capture(ServerPlayer player) {
-            List<ItemStack> inventoryContents = new ArrayList<>();
+            List<ItemStack> contents = new ArrayList<>();
             for (int slot = 0; slot < player.getInventory().getContainerSize(); slot++) {
-                inventoryContents.add(player.getInventory().getItem(slot).copy());
+                contents.add(player.getInventory().getItem(slot).copy());
             }
-
             return new PlayerSnapshot(
                     player.serverLevel(),
-                    player.getX(),
-                    player.getY(),
-                    player.getZ(),
-                    player.getYRot(),
-                    player.getXRot(),
+                    player.getX(), player.getY(), player.getZ(),
+                    player.getYRot(), player.getXRot(),
                     player.gameMode.getGameModeForPlayer(),
-                    inventoryContents,
+                    contents,
                     player.getInventory().selected,
                     player.getHealth(),
                     player.getFoodData().getFoodLevel(),
@@ -390,13 +283,11 @@ public class GameSession {
 
         public void restore(ServerPlayer player) {
             player.teleportTo(level, x, y, z, yRot, xRot);
-
             player.getInventory().clearContent();
             int maxSlots = Math.min(player.getInventory().getContainerSize(), inventoryContents.size());
             for (int slot = 0; slot < maxSlots; slot++) {
                 player.getInventory().setItem(slot, inventoryContents.get(slot).copy());
             }
-
             player.getInventory().selected = selectedSlot;
             player.setGameMode(gameType);
             player.setHealth(Math.min(player.getMaxHealth(), Math.max(1.0F, health)));

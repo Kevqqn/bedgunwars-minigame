@@ -6,14 +6,22 @@ import com.frosty.bedgunwars.event.BedEventHandler;
 import com.frosty.bedgunwars.event.GameTickHandler;
 import com.frosty.bedgunwars.event.PlayerDeathHandler;
 import com.frosty.bedgunwars.event.PlayerRespawnHandler;
+import com.frosty.bedgunwars.game.GameManager;
 import com.frosty.bedgunwars.game.GameModeType;
+import com.frosty.bedgunwars.game.GamePhase;
+import com.frosty.bedgunwars.game.GameSession;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.suggestion.SuggestionProvider;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import com.mojang.brigadier.arguments.StringArgumentType;
+
+import java.util.UUID;
 
 @Mod(BedGunWars.MOD_ID)
 public class BedGunWars {
@@ -30,6 +38,27 @@ public class BedGunWars {
 
     @SubscribeEvent
     public void onRegisterCommands(RegisterCommandsEvent event) {
+
+        // Suggests all GamePhase enum values
+        SuggestionProvider<CommandSourceStack> phaseSuggestions = (ctx, builder) -> {
+            for (GamePhase p : GamePhase.values()) {
+                builder.suggest(p.name());
+            }
+            return builder.buildFuture();
+        };
+
+        // Suggests players currently in the active game session
+        SuggestionProvider<CommandSourceStack> inGamePlayers = (ctx, builder) -> {
+            GameSession session = GameManager.getSession();
+            if (session != null && session.isActive()) {
+                for (UUID uuid : session.getPlayers()) {
+                    ServerPlayer p = ctx.getSource().getServer().getPlayerList().getPlayer(uuid);
+                    if (p != null) builder.suggest(p.getName().getString());
+                }
+            }
+            return builder.buildFuture();
+        };
+
         event.getDispatcher().register(
                 Commands.literal("game")
                         .then(Commands.literal("start")
@@ -50,35 +79,21 @@ public class BedGunWars {
                                 .then(Commands.argument("size", IntegerArgumentType.integer(11))
                                         .executes(ctx -> GameCommand.setBorder(
                                                 ctx.getSource(),
-                                                IntegerArgumentType.getInteger(ctx, "size")
-                                        ))
-                                )
-                        )
-                        .then(Commands.literal("debug")
-                                .requires(source -> source.hasPermission(2))
-                                .then(Commands.literal("eliminate")
-                                        .executes(ctx -> GameDebugCommand.eliminate(ctx.getSource()))
-                                )
-                                .then(Commands.literal("forcewin")
-                                        .executes(ctx -> GameDebugCommand.forceWin(ctx.getSource()))
-                                )
-                                .then(Commands.literal("setphase")
-                                        .then(Commands.argument("phase", StringArgumentType.word())
-                                                .executes(ctx -> GameDebugCommand.setPhase(ctx.getSource(), StringArgumentType.getString(ctx, "phase")))
-                                        )
-                                )
-                                .then(Commands.literal("status")               // <-- ADD THIS
-                                        .executes(ctx -> GameDebugCommand.status(ctx.getSource()))
-                                )
+                                                IntegerArgumentType.getInteger(ctx, "size"))))
                         )
                         .then(Commands.literal("prep")
                                 .requires(source -> source.hasPermission(2))
                                 .then(Commands.argument("seconds", IntegerArgumentType.integer(1))
                                         .executes(ctx -> GameCommand.setPrep(
                                                 ctx.getSource(),
-                                                IntegerArgumentType.getInteger(ctx, "seconds")
-                                        ))
-                                )
+                                                IntegerArgumentType.getInteger(ctx, "seconds"))))
+                        )
+                        .then(Commands.literal("matchtimer")
+                                .requires(source -> source.hasPermission(2))
+                                .then(Commands.argument("seconds", IntegerArgumentType.integer(1))
+                                        .executes(ctx -> GameCommand.setMatchTimer(
+                                                ctx.getSource(),
+                                                IntegerArgumentType.getInteger(ctx, "seconds"))))
                         )
                         .then(Commands.literal("stop")
                                 .requires(source -> source.hasPermission(2))
@@ -86,16 +101,36 @@ public class BedGunWars {
                         )
                         .then(Commands.literal("debug")
                                 .requires(source -> source.hasPermission(2))
+                                .then(Commands.literal("status")
+                                        .executes(ctx -> GameDebugCommand.status(ctx.getSource()))
+                                )
                                 .then(Commands.literal("eliminate")
-                                        .executes(ctx -> GameDebugCommand.eliminate(ctx.getSource()))
+                                        .then(Commands.argument("player", StringArgumentType.word())
+                                                .suggests(inGamePlayers)
+                                                .executes(ctx -> GameDebugCommand.eliminate(
+                                                        ctx.getSource(),
+                                                        StringArgumentType.getString(ctx, "player"))))
+                                )
+                                .then(Commands.literal("eliminatebed")
+                                        .then(Commands.argument("player", StringArgumentType.word())
+                                                .suggests(inGamePlayers)
+                                                .executes(ctx -> GameDebugCommand.eliminateBed(
+                                                        ctx.getSource(),
+                                                        StringArgumentType.getString(ctx, "player"))))
                                 )
                                 .then(Commands.literal("forcewin")
-                                        .executes(ctx -> GameDebugCommand.forceWin(ctx.getSource()))
+                                        .then(Commands.argument("player", StringArgumentType.word())
+                                                .suggests(inGamePlayers)
+                                                .executes(ctx -> GameDebugCommand.forceWin(
+                                                        ctx.getSource(),
+                                                        StringArgumentType.getString(ctx, "player"))))
                                 )
                                 .then(Commands.literal("setphase")
                                         .then(Commands.argument("phase", StringArgumentType.word())
-                                                .executes(ctx -> GameDebugCommand.setPhase(ctx.getSource(), StringArgumentType.getString(ctx, "phase")))
-                                        )
+                                                .suggests(phaseSuggestions)
+                                                .executes(ctx -> GameDebugCommand.setPhase(
+                                                        ctx.getSource(),
+                                                        StringArgumentType.getString(ctx, "phase"))))
                                 )
                         )
         );
