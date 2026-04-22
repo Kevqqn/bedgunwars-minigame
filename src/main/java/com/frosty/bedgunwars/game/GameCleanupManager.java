@@ -8,22 +8,21 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.GameRules;
 
 import java.util.UUID;
 
 public class GameCleanupManager {
 
     public static void restoreAndEnd(MinecraftServer server, GameSession session, String endMessage) {
-        // Remove boss bar
         BossBarManager.remove(server);
 
-        // Remove all bed blocks placed during the game — flag 18 suppresses item drops
+        server.getGameRules().getRule(GameRules.RULE_KEEPINVENTORY).set(false, server);
+
         removeGameBeds(session);
 
-        // Restore world border
         BorderManager.restoreBorder(session);
 
-        // Restore all player states using saved snapshots
         for (UUID uuid : session.getSavedSnapshots().keySet()) {
             ServerPlayer player = server.getPlayerList().getPlayer(uuid);
             if (player == null) continue;

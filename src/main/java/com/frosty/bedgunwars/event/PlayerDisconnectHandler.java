@@ -34,9 +34,13 @@ public class PlayerDisconnectHandler {
             return;
         }
 
-        if (phase == GamePhase.ACTIVE && !session.isEliminated(uuid)) {
-            session.handlePlayerDisconnect(uuid, true);
-            WinManager.checkWinner(session);
+        if (phase == GamePhase.ACTIVE && session.getPlayers().contains(uuid) && !session.isEliminated(uuid)) {
+            if (session.isBedBroken(uuid)) {
+                session.handlePlayerDisconnect(uuid, true);
+                WinManager.checkWinner(session);
+            } else {
+                session.handlePlayerDisconnect(uuid, false);
+            }
         }
     }
 }

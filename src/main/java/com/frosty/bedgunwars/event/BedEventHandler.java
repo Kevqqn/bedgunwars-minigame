@@ -15,6 +15,11 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraftforge.event.level.BlockEvent;
+import com.frosty.bedgunwars.game.SoundHelper;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LightningBolt;
+import net.minecraft.core.BlockPos;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 import java.util.UUID;
@@ -125,13 +130,28 @@ public class BedEventHandler {
             if (!session.isBedBroken(owner)) {
                 session.breakBed(owner);
 
-                // Notify the owner their bed was broken
-                ServerPlayer bedOwnerPlayer = session.getLevel().getServer().getPlayerList().getPlayer(owner);
+                MinecraftServer server = session.getLevel().getServer();
+                String breakerName = player.getName().getString();
+
+                ServerPlayer bedOwnerPlayer = server.getPlayerList().getPlayer(owner);
                 if (bedOwnerPlayer != null) {
-                    bedOwnerPlayer.sendSystemMessage(Component.literal("Your bed was destroyed! You can no longer respawn."));
+                    sendNotice(bedOwnerPlayer, "Your bed has been broken! Survive at all cost.");
                 }
 
-                player.sendSystemMessage(Component.literal("You destroyed a bed!"));
+                BlockPos bedPos = session.getPlayerBed(owner) != null ? session.getPlayerBed(owner) : pos;
+                LightningBolt bolt = new LightningBolt(EntityType.LIGHTNING_BOLT, session.getLevel());
+                bolt.setPos(bedPos.getX() + 0.5, bedPos.getY(), bedPos.getZ() + 0.5);
+                bolt.setVisualOnly(true);
+                session.getLevel().addFreshEntity(bolt);
+
+                server.tell(new net.minecraft.server.TickTask(server.getTickCount() + 20, () -> {
+                    String ownerName = server.getPlayerList().getPlayer(owner) != null
+                            ? server.getPlayerList().getPlayer(owner).getName().getString()
+                            : "A player";
+                    for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+                        sendNotice(p, ownerName + "'s bed has been destroyed by " + breakerName + "!");
+                    }
+                }));
             }
         }
     }
@@ -142,5 +162,16 @@ public class BedEventHandler {
         int dx = Math.abs(pos.getX() - center.getX());
         int dz = Math.abs(pos.getZ() - center.getZ());
         return dx <= radius && dz <= radius;
+    }
+    private void sendNotice(ServerPlayer player, String message) {
+        net.minecraft.network.chat.MutableComponent prefix =
+                Component.literal("[")
+                        .withStyle(s -> s.withColor(net.minecraft.ChatFormatting.GOLD))
+                        .append(Component.literal("NOTICE")
+                                .withStyle(s -> s.withColor(net.minecraft.ChatFormatting.GREEN)))
+                        .append(Component.literal("] ")
+                                .withStyle(s -> s.withColor(net.minecraft.ChatFormatting.GOLD)));
+        player.sendSystemMessage(prefix.append(Component.literal(message)));
+        SoundHelper.playNoteClick(player, SoundHelper.noteToPitch(20));
     }
 }

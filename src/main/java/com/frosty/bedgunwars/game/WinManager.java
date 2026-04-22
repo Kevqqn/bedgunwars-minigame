@@ -5,7 +5,14 @@ import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.server.level.ServerPlayer;
+import com.frosty.bedgunwars.game.SoundHelper;
+import net.minecraft.world.entity.projectile.FireworkRocketEntity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 
+import java.util.Random;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -62,13 +69,43 @@ public class WinManager {
 
     private static void announceWinner(GameSession session, String winnerName) {
         session.setWinner(winnerName);
-
-        // Send title screen to all players in the game
         for (UUID uuid : session.getPlayers()) {
             ServerPlayer player = session.getLevel().getServer().getPlayerList().getPlayer(uuid);
             if (player == null) continue;
             sendTitle(player, winnerName + " won the game!", "");
+            SoundHelper.playLevelUp(player);
         }
+        ServerPlayer winner = null;
+        for (UUID uuid : session.getPlayers()) {
+            ServerPlayer p = session.getLevel().getServer().getPlayerList().getPlayer(uuid);
+            if (p != null && p.getName().getString().equals(winnerName)) { winner = p; break; }
+        }
+        if (winner != null) launchFirework(winner);
+    }
+
+    private static void launchFirework(ServerPlayer player) {
+        Random random = new Random();
+        int[] shapes = {0, 1, 2, 3, 4};
+        int shape = shapes[random.nextInt(shapes.length)];
+
+        ItemStack rocket = new ItemStack(Items.FIREWORK_ROCKET);
+        CompoundTag fireworks = new CompoundTag();
+        ListTag explosions = new ListTag();
+        CompoundTag explosion = new CompoundTag();
+        explosion.putByte("Type", (byte) shape);
+        explosion.putBoolean("Flicker", random.nextBoolean());
+        explosion.putBoolean("Trail", random.nextBoolean());
+        int[] colors = new int[random.nextInt(3) + 1];
+        for (int i = 0; i < colors.length; i++) colors[i] = random.nextInt(0xFFFFFF);
+        explosion.putIntArray("Colors", colors);
+        explosions.add(explosion);
+        fireworks.put("Explosions", explosions);
+        fireworks.putByte("Flight", (byte) 1);
+        rocket.getOrCreateTag().put("Fireworks", fireworks);
+
+        FireworkRocketEntity firework = new FireworkRocketEntity(
+                player.level(), player.getX(), player.getY(), player.getZ(), rocket);
+        player.level().addFreshEntity(firework);
     }
 
     public static void sendTitle(ServerPlayer player, String title, String subtitle) {

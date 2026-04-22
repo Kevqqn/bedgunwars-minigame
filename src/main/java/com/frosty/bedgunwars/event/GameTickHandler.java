@@ -5,14 +5,18 @@ import com.frosty.bedgunwars.game.GameCleanupManager;
 import com.frosty.bedgunwars.game.GameManager;
 import com.frosty.bedgunwars.game.GamePhase;
 import com.frosty.bedgunwars.game.GameSession;
+import com.frosty.bedgunwars.game.SoundHelper;
+import com.frosty.bedgunwars.game.WinManager;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.GameRules;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 public class GameTickHandler {
 
+    @SuppressWarnings("unused")
     @SubscribeEvent
     public void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
@@ -22,7 +26,6 @@ public class GameTickHandler {
         GamePhase phase = session.getPhase();
 
         if (phase == GamePhase.PREPARATION) {
-            session.decreasePrepTime();
             int ticksLeft = session.getPrepTimeTicks();
             int initialTicks = session.getInitialPrepTicks();
             int secondsLeft = ticksLeft / 20;
@@ -30,14 +33,24 @@ public class GameTickHandler {
             float progress = initialTicks > 0 ? (float) ticksLeft / initialTicks : 0f;
             BossBarManager.show(event.getServer(), "Preparation: " + secondsLeft + "s remaining", progress);
 
-            if (ticksLeft == 60 * 20 || ticksLeft == 30 * 20 || ticksLeft == 10 * 20
-                    || ticksLeft == 5 * 20 || ticksLeft == 4 * 20 || ticksLeft == 3 * 20
+            if (ticksLeft == 5 * 20 || ticksLeft == 4 * 20 || ticksLeft == 3 * 20
                     || ticksLeft == 2 * 20 || ticksLeft == 1 * 20) {
-                broadcast(event.getServer(), "Game starts in " + secondsLeft + " second" + (secondsLeft == 1 ? "!" : "s!"));
+                for (ServerPlayer p : event.getServer().getPlayerList().getPlayers()) {
+                    SoundHelper.playNoteClick(p, SoundHelper.noteToPitch(20));
+                }
+                broadcast(event.getServer(), "Game starts in " + secondsLeft + "s!");
+            } else if (ticksLeft == 60 * 20 || ticksLeft == 30 * 20 || ticksLeft == 10 * 20) {
+                broadcast(event.getServer(), "Game starts in " + secondsLeft + "s!");
             }
 
-            if (ticksLeft <= 0) {
+            session.decreasePrepTime();
+
+            if (session.getPrepTimeTicks() <= 0) {
                 session.setPhase(GamePhase.ACTIVE);
+                event.getServer().getGameRules().getRule(GameRules.RULE_KEEPINVENTORY).set(true, event.getServer());
+                for (ServerPlayer p : event.getServer().getPlayerList().getPlayers()) {
+                    SoundHelper.playNoteClick(p, SoundHelper.noteToPitch(25));
+                }
                 broadcast(event.getServer(), "Game has started! Destroy enemy beds!");
             }
         }
@@ -54,7 +67,7 @@ public class GameTickHandler {
             if (ticksLeft == 60 * 20 || ticksLeft == 30 * 20 || ticksLeft == 10 * 20
                     || ticksLeft == 5 * 20 || ticksLeft == 4 * 20 || ticksLeft == 3 * 20
                     || ticksLeft == 2 * 20 || ticksLeft == 1 * 20) {
-                broadcast(event.getServer(), "Match ends in " + secondsLeft + " second" + (secondsLeft == 1 ? "!" : "s!"));
+                broadcast(event.getServer(), "Match ends in " + secondsLeft + "s!");
             }
 
             if (ticksLeft <= 0) {

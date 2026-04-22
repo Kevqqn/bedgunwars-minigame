@@ -8,6 +8,8 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameType;
 import net.minecraft.network.chat.Component;
+import com.frosty.bedgunwars.game.GamePhase;
+import com.frosty.bedgunwars.game.WinManager;
 
 import java.util.UUID;
 
@@ -20,21 +22,26 @@ public class PlayerReconnectHandler {
 
         GameSession session = GameManager.getSession();
         UUID uuid = player.getUUID();
+        GamePhase phase = session.getPhase();
+
+        if (!session.getPlayers().contains(uuid)) return;
 
         if (session.isEliminated(uuid)) {
             player.setGameMode(GameType.SPECTATOR);
-            player.sendSystemMessage(Component.literal("You were eliminated"));
+            player.sendSystemMessage(Component.literal("You were eliminated."));
             return;
         }
 
-        if (session.getPlayers().contains(uuid)) {
-            if (session.getPendingRespawnPlayers().contains(uuid)) {
+        if (phase == GamePhase.ACTIVE) {
+            if (session.isBedBroken(uuid)) {
+                session.eliminatePlayer(uuid);
                 player.setGameMode(GameType.SPECTATOR);
-                player.sendSystemMessage(Component.literal("Respawning soon"));
-            } else {
-                player.setGameMode(GameType.SURVIVAL);
-                player.sendSystemMessage(Component.literal("Rejoined match"));
+                player.sendSystemMessage(Component.literal("Your bed was destroyed while you were gone. You are eliminated."));
+                WinManager.checkWinner(session);
+                return;
             }
+            player.setGameMode(GameType.SURVIVAL);
+            player.sendSystemMessage(Component.literal("You reconnected and still in the match."));
         }
     }
 }

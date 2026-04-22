@@ -7,6 +7,7 @@ import com.frosty.bedgunwars.game.WinManager;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import com.frosty.bedgunwars.game.SoundHelper;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 import java.util.UUID;
@@ -32,14 +33,26 @@ public class PlayerDeathHandler {
         if (hasBed && !bedBroken) {
             // Bed still intact — player respawns
             session.markPendingRespawn(uuid);
-            player.sendSystemMessage(Component.literal("You will respawn. Your bed is still alive."));
+            sendNotice(player, "Bed is not broken, respawning...");
         } else {
             // No bed or bed broken — permanently eliminated
             session.eliminatePlayer(uuid);
-            player.sendSystemMessage(Component.literal("You are eliminated!"));
+            sendNotice(player, "You are eliminated!");
 
             // Check if this elimination ends the game
             WinManager.checkWinner(session);
         }
+    }
+
+    private void sendNotice(ServerPlayer player, String message) {
+        net.minecraft.network.chat.MutableComponent prefix =
+                Component.literal("[")
+                        .withStyle(s -> s.withColor(net.minecraft.ChatFormatting.GOLD))
+                        .append(Component.literal("NOTICE")
+                                .withStyle(s -> s.withColor(net.minecraft.ChatFormatting.GREEN)))
+                        .append(Component.literal("] ")
+                                .withStyle(s -> s.withColor(net.minecraft.ChatFormatting.GOLD)));
+        player.sendSystemMessage(prefix.append(Component.literal(message)));
+        SoundHelper.playNoteClick(player, SoundHelper.noteToPitch(20));
     }
 }
