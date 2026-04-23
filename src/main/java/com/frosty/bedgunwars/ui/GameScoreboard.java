@@ -9,6 +9,7 @@ import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 
+import java.util.ArrayList;
 import java.util.UUID;
 
 public class GameScoreboard {
@@ -23,20 +24,21 @@ public class GameScoreboard {
     }
 
     private static void apply(ServerPlayer player, GameSession session) {
-        Scoreboard scoreboard = player.getScoreboard();
-        Objective obj = scoreboard.getObjective(OBJ_NAME);
+        Scoreboard scoreboard = session.getLevel().getServer().getScoreboard();
 
-        if (obj == null) {
-            obj = scoreboard.addObjective(
-                    OBJ_NAME,
-                    ObjectiveCriteria.DUMMY,
-                    Component.literal("§6§lGame"),
-                    ObjectiveCriteria.RenderType.INTEGER
-            );
+        Objective obj = scoreboard.getObjective(OBJ_NAME);
+        if (obj != null) {
+            scoreboard.removeObjective(obj);
         }
 
+        obj = scoreboard.addObjective(
+                OBJ_NAME,
+                ObjectiveCriteria.DUMMY,
+                Component.literal("§6§lBedGunWars"),
+                ObjectiveCriteria.RenderType.INTEGER
+        );
+
         scoreboard.setDisplayObjective(Scoreboard.DISPLAY_SLOT_SIDEBAR, obj);
-        clear(scoreboard, obj);
 
         GamePhase phase = session.getPhase();
         int total = session.getPlayers().size();
@@ -90,24 +92,16 @@ public class GameScoreboard {
     }
 
     public static void remove(MinecraftServer server) {
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            Scoreboard scoreboard = player.getScoreboard();
-            Objective obj = scoreboard.getObjective(OBJ_NAME);
-            if (obj != null) {
-                scoreboard.setDisplayObjective(Scoreboard.DISPLAY_SLOT_SIDEBAR, null);
-                scoreboard.removeObjective(obj);
-            }
+        Scoreboard scoreboard = server.getScoreboard();
+        Objective obj = scoreboard.getObjective(OBJ_NAME);
+        if (obj != null) {
+            scoreboard.setDisplayObjective(Scoreboard.DISPLAY_SLOT_SIDEBAR, null);
+            scoreboard.removeObjective(obj);
         }
     }
 
     private static void add(Scoreboard scoreboard, Objective obj, String text, int score) {
         scoreboard.getOrCreatePlayerScore(text, obj).setScore(score);
-    }
-
-    private static void clear(Scoreboard scoreboard, Objective obj) {
-        for (String entry : new java.util.ArrayList<>(scoreboard.getObjectiveNames())) {
-            scoreboard.resetPlayerScore(entry, obj);
-        }
     }
 
     private static String formatTime(int totalSeconds) {
