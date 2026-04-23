@@ -173,6 +173,11 @@ public class GameCommand {
             return 0;
         }
 
+        if (!session.isMatchTimerSet()) {
+            source.sendFailure(Component.literal("Set match timer/game matchtime <seconds>"));
+            return 0;
+        }
+
         List<ServerPlayer> players = resolveJoinedPlayers(player.serverLevel().getServer(), session);
         if (players.isEmpty()) {
             source.sendFailure(Component.literal("No valid players found to start"));
@@ -197,7 +202,7 @@ public class GameCommand {
         return 1;
     }
 
-    public static int setMatchTimer(CommandSourceStack source, int seconds) {
+    public static int setMatchTime(CommandSourceStack source, int seconds) {
         if (!GameManager.hasGame()) {
             source.sendFailure(Component.literal("No active game"));
             return 0;

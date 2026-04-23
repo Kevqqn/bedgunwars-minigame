@@ -7,12 +7,23 @@ import com.frosty.bedgunwars.game.GamePhase;
 import com.frosty.bedgunwars.game.GameSession;
 import com.frosty.bedgunwars.game.SoundHelper;
 import com.frosty.bedgunwars.game.WinManager;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameRules;
+import net.minecraft.world.level.block.BedBlock;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.border.WorldBorder;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+
+import java.util.UUID;
 
 public class GameTickHandler {
 
@@ -71,8 +82,34 @@ public class GameTickHandler {
             }
 
             if (ticksLeft <= 0) {
-                GameCleanupManager.restoreAndEnd(event.getServer(), session, "Time's up! No winner — game over.");
+                startEndgame(event.getServer(), session);
             }
+        }
+
+        else if (phase == GamePhase.ENDING) {
+            int shrinkTicks = session.getEndgameBorderShrinkTicks();
+            int interval = session.getEndgameBorderShrinkInterval();
+            int secondsUntilShrink = shrinkTicks / 20;
+
+            BossBarManager.show(event.getServer(), "ENDGAME — Border shrinks in " + formatTime(secondsUntilShrink), 1.0f);
+
+            if (shrinkTicks == 5 * 20 || shrinkTicks == 4 * 20 || shrinkTicks == 3 * 20
+                    || shrinkTicks == 2 * 20 || shrinkTicks == 1 * 20) {
+                for (ServerPlayer p : event.getServer().getPlayerList().getPlayers()) {
+                    SoundHelper.playNoteClick(p, SoundHelper.noteToPitch(20));
+                }
+                broadcast(event.getServer(), "Border shrinks in " + secondsUntilShrink + "s!");
+            }
+
+            session.decreaseEndgameShrinkTicks();
+
+            if (session.getEndgameBorderShrinkTicks() <= 0) {
+                shrinkBorder(session, 30);
+                session.setEndgameBorderShrinkTicks(interval);
+                broadcast(event.getServer(), "The border has shrunk by 30 blocks!");
+            }
+
+            WinManager.checkWinner(session);
         }
 
         else if (phase == GamePhase.WINNER_ANNOUNCED) {
@@ -84,6 +121,47 @@ public class GameTickHandler {
                 );
             }
         }
+    }
+
+    private void startEndgame(MinecraftServer server, GameSession session) {
+        session.setPhase(GamePhase.ENDING);
+        session.setEndgameBorderShrinkTicks(session.getEndgameBorderShrinkInterval());
+
+        destroyAllBeds(session);
+
+        for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+            SoundHelper.playWitherDeath(p);
+            p.connection.send(new ClientboundSetTitlesAnimationPacket(10, 70, 20));
+            p.connection.send(new ClientboundSetTitleTextPacket(Component.literal("Endgame")));
+            p.connection.send(new ClientboundSetSubtitleTextPacket(
+                    Component.literal("No respawn, last man standing wins!")));
+        }
+
+        broadcast(server, "Endgame! All beds destroyed. Last player standing wins!");
+    }
+
+    private void destroyAllBeds(GameSession session) {
+        for (UUID uuid : session.getPlayers()) {
+            if (session.isEliminated(uuid)) continue;
+            BlockPos footPos = session.getPlayerBed(uuid);
+            if (footPos == null) continue;
+            BlockState footState = session.getLevel().getBlockState(footPos);
+            if (!(footState.getBlock() instanceof BedBlock)) continue;
+            Direction facing = footState.getValue(BedBlock.FACING);
+            BlockPos headPos = footPos.relative(facing);
+            session.getLevel().setBlock(footPos, Blocks.AIR.defaultBlockState(), 18);
+            BlockState headState = session.getLevel().getBlockState(headPos);
+            if (headState.getBlock() instanceof BedBlock) {
+                session.getLevel().setBlock(headPos, Blocks.AIR.defaultBlockState(), 18);
+            }
+            session.breakBed(uuid);
+        }
+    }
+
+    private void shrinkBorder(GameSession session, int blocks) {
+        WorldBorder border = session.getLevel().getWorldBorder();
+        double newSize = Math.max(0, border.getSize() - (blocks * 2.0));
+        border.setSize(newSize);
     }
 
     private String formatTime(int totalSeconds) {

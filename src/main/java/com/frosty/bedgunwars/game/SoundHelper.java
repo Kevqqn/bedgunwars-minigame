@@ -29,4 +29,12 @@ public class SoundHelper {
     public static float noteToPitch(int note) {
         return (float) Math.pow(2.0, (note - 12) / 12.0);
     }
+    public static void playWitherDeath(ServerPlayer player) {
+        player.connection.send(new ClientboundSoundPacket(
+                BuiltInRegistries.SOUND_EVENT.wrapAsHolder(SoundEvents.WITHER_DEATH),
+                SoundSource.MASTER,
+                player.getX(), player.getY(), player.getZ(),
+                1.0f, 1.0f, 0L
+        ));
+    }
 }

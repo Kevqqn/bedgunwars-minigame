@@ -21,11 +21,18 @@ public class PlayerDeathHandler {
 
         GameSession session = GameManager.getSession();
         if (session == null || !session.isActive()) return;
-        if (session.getPhase() != GamePhase.ACTIVE) return;
+        if (session.getPhase() != GamePhase.ACTIVE && session.getPhase() != GamePhase.ENDING) return;
 
         UUID uuid = player.getUUID();
         if (!session.getPlayers().contains(uuid)) return;
         if (session.isEliminated(uuid)) return;
+
+        if (session.getPhase() == GamePhase.ENDING) {
+            session.eliminatePlayer(uuid);
+            sendNotice(player, "You are eliminated!");
+            WinManager.checkWinner(session);
+            return;
+        }
 
         boolean hasBed = session.hasPlacedBed(uuid);
         boolean bedBroken = session.isBedBroken(uuid);

@@ -21,7 +21,7 @@ public class WinManager {
 
     public static void checkWinner(GameSession session) {
         if (session == null || !session.isActive()) return;
-        if (session.getPhase() != GamePhase.ACTIVE) return;
+        if (session.getPhase() != GamePhase.ACTIVE && session.getPhase() != GamePhase.ENDING) return;
 
         // Safeguard: single-player testing — don't auto-end immediately
         if (session.getMatchStartPlayerCount() <= 1) return;

@@ -88,10 +88,10 @@ public class BedGunWars {
                                                 ctx.getSource(),
                                                 IntegerArgumentType.getInteger(ctx, "seconds"))))
                         )
-                        .then(Commands.literal("matchtimer")
+                        .then(Commands.literal("matchtime")
                                 .requires(source -> source.hasPermission(2))
                                 .then(Commands.argument("seconds", IntegerArgumentType.integer(1))
-                                        .executes(ctx -> GameCommand.setMatchTimer(
+                                        .executes(ctx -> GameCommand.setMatchTime(
                                                 ctx.getSource(),
                                                 IntegerArgumentType.getInteger(ctx, "seconds"))))
                         )

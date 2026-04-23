@@ -84,14 +84,34 @@ public class GameSession {
     public int getMatchTimeTicks() { return matchTimeTicks; }
     public int getInitialMatchTicks() { return initialMatchTicks; }
 
+    public boolean isMatchTimerSet() { return matchTimerSet; }
+
     public void setMatchTimeSeconds(int seconds) {
         this.matchTimeTicks = seconds * 20;
         this.initialMatchTicks = seconds * 20;
+        this.matchTimerSet = true;
     }
+
+    public int getEndgameBorderShrinkTicks() { return endgameBorderShrinkTicks; }
+
+    public void setEndgameBorderShrinkTicks(int ticks) { this.endgameBorderShrinkTicks = ticks; }
+
+    public void decreaseEndgameShrinkTicks() {
+        if (endgameBorderShrinkTicks > 0) endgameBorderShrinkTicks--;
+    }
+
+    public int getEndgameBorderShrinkInterval() { return endgameBorderShrinkInterval; }
 
     public void decreaseMatchTime() {
         if (matchTimeTicks > 0) matchTimeTicks--;
+
+        matchTimerSet = false;
+        endgameBorderShrinkTicks = 0;
     }
+
+    private boolean matchTimerSet = false;
+    private int endgameBorderShrinkTicks = 0;
+    private int endgameBorderShrinkInterval = 2 * 60 * 20;
 
     // --- Border ---
     public int getBorderRadius() { return borderRadius; }
@@ -143,7 +163,7 @@ public class GameSession {
 
     public boolean isBedBroken(UUID uuid) { return brokenBeds.contains(uuid); }
 
-    // --- Elimination ---
+    // elimination
     public Set<UUID> getEliminatedPlayers() { return eliminatedPlayers; }
     public boolean isEliminated(UUID uuid) { return eliminatedPlayers.contains(uuid); }
 
@@ -152,12 +172,12 @@ public class GameSession {
         pendingRespawnPlayers.remove(uuid);
     }
 
-    // --- Respawn ---
+    // respawn
     public Set<UUID> getPendingRespawnPlayers() { return pendingRespawnPlayers; }
     public void markPendingRespawn(UUID uuid) { pendingRespawnPlayers.add(uuid); }
     public void clearPendingRespawn(UUID uuid) { pendingRespawnPlayers.remove(uuid); }
 
-    // --- Winner ---
+    // win
     public String getWinnerName() { return winnerName; }
 
     public void setWinner(String winnerName) {
