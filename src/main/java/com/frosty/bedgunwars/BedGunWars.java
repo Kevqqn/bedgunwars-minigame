@@ -18,6 +18,8 @@ import net.minecraft.commands.Commands;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
+import com.frosty.bedgunwars.client.KeyBindings;
+import com.frosty.bedgunwars.network.PacketHandler;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -33,7 +35,28 @@ public class BedGunWars {
         MinecraftForge.EVENT_BUS.register(new BedEventHandler());
         MinecraftForge.EVENT_BUS.register(new PlayerDeathHandler());
         MinecraftForge.EVENT_BUS.register(new PlayerRespawnHandler());
+        PacketHandler.register();
         System.out.println("BedGunWars Loaded");
+    }
+
+    @Mod.EventBusSubscriber(modid = BedGunWars.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = net.minecraftforge.api.distmarker.Dist.CLIENT)
+    public static class ClientForgeEvents {
+        @SubscribeEvent
+        public static void onKeyInput(net.minecraftforge.client.event.InputEvent.Key event) {
+            if (KeyBindings.GUN_MENU_KEY.consumeClick()) {
+                net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+                if (mc.player == null || mc.screen != null) return;
+                PacketHandler.CHANNEL.sendToServer(new com.frosty.bedgunwars.network.RequestGunMenuPacket());
+            }
+        }
+    }
+
+    @Mod.EventBusSubscriber(modid = BedGunWars.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = net.minecraftforge.api.distmarker.Dist.CLIENT)
+    public static class ClientModEvents {
+        @SubscribeEvent
+        public static void onRegisterKeyMappings(net.minecraftforge.client.event.RegisterKeyMappingsEvent event) {
+            event.register(KeyBindings.GUN_MENU_KEY);
+        }
     }
 
     @SubscribeEvent

@@ -22,6 +22,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.border.WorldBorder;
 import net.minecraftforge.event.TickEvent;
 import com.frosty.bedgunwars.ui.GameScoreboard;
+import com.frosty.bedgunwars.game.GunHelper;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 import java.util.UUID;
@@ -67,6 +68,23 @@ public class GameTickHandler {
                 broadcast(event.getServer(), "Game has started! Destroy enemy beds!");
             }
             GameScoreboard.update(session);
+            for (UUID uuid : session.getPlayers()) {
+                ServerPlayer p = event.getServer().getPlayerList().getPlayer(uuid);
+                if (p != null) {
+                    p.getInventory().add(GunHelper.buildCreativeAmmoBox());
+                    p.containerMenu.broadcastChanges();
+                }
+            }
+            for (UUID uuid : session.getPlayers()) {
+                ServerPlayer p = event.getServer().getPlayerList().getPlayer(uuid);
+                if (p == null) continue;
+                if (!session.getGunSelectionManager().hasSelected(uuid)) {
+                    p.getInventory().add(GunHelper.buildGun(
+                            session.getGunSelectionManager().getAvailableGuns().get(0)
+                    ));
+                    p.containerMenu.broadcastChanges();
+                }
+            }
         }
 
         else if (phase == GamePhase.ACTIVE) {
@@ -118,6 +136,7 @@ public class GameTickHandler {
         }
 
         else if (phase == GamePhase.WINNER_ANNOUNCED) {
+            GameScoreboard.update(session);
             session.decreaseWinnerDelay();
             if (session.getWinnerDelayTicks() <= 0) {
                 GameCleanupManager.restoreAndEnd(
@@ -125,7 +144,6 @@ public class GameTickHandler {
                         session.getWinnerName() + " wins! Game over."
                 );
             }
-            GameScoreboard.update(session);
         }
     }
 

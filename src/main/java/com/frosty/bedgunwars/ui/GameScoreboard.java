@@ -21,6 +21,7 @@ public class GameScoreboard {
     private static final String OBJ_NAME = "bedgunwars";
 
     public static void update(GameSession session) {
+        if (!session.isActive()) return;
         for (UUID uuid : session.getPlayers()) {
             ServerPlayer player = session.getLevel().getServer().getPlayerList().getPlayer(uuid);
             if (player != null) apply(player, session);

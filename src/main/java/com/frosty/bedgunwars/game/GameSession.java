@@ -40,6 +40,7 @@ public class GameSession {
     private final Set<UUID> brokenBeds = new HashSet<>();
     private final Set<UUID> eliminatedPlayers = new HashSet<>();
     private final Set<UUID> pendingRespawnPlayers = new HashSet<>();
+    private final GunSelectionManager gunSelectionManager = new GunSelectionManager();
 
     private final Map<UUID, PlayerSnapshot> savedPlayerStates = new HashMap<>();
 
@@ -63,6 +64,7 @@ public class GameSession {
 
     public GamePhase getPhase() { return phase; }
     public void setPhase(GamePhase phase) { this.phase = phase; }
+    public GunSelectionManager getGunSelectionManager() { return gunSelectionManager; }
 
     public boolean isActive() { return active; }
     public void end() { this.active = false; }
@@ -240,6 +242,7 @@ public class GameSession {
         brokenBeds.clear();
         eliminatedPlayers.clear();
         pendingRespawnPlayers.clear();
+        gunSelectionManager.clear();
         winnerName = null;
         winnerDelayTicks = 0;
         matchStartPlayerCount = 0;
