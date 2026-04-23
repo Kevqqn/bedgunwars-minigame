@@ -9,6 +9,7 @@ import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.GameRules;
+import com.frosty.bedgunwars.ui.GameScoreboard;
 
 import java.util.UUID;
 
@@ -16,6 +17,7 @@ public class GameCleanupManager {
 
     public static void restoreAndEnd(MinecraftServer server, GameSession session, String endMessage) {
         BossBarManager.remove(server);
+        GameScoreboard.remove(server);
 
         server.getGameRules().getRule(GameRules.RULE_KEEPINVENTORY).set(false, server);
 

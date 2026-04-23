@@ -21,6 +21,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.border.WorldBorder;
 import net.minecraftforge.event.TickEvent;
+import com.frosty.bedgunwars.ui.GameScoreboard;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 import java.util.UUID;
@@ -54,6 +55,7 @@ public class GameTickHandler {
                 broadcast(event.getServer(), "Game starts in " + secondsLeft + "s!");
             }
 
+
             session.decreasePrepTime();
 
             if (session.getPrepTimeTicks() <= 0) {
@@ -64,6 +66,7 @@ public class GameTickHandler {
                 }
                 broadcast(event.getServer(), "Game has started! Destroy enemy beds!");
             }
+            GameScoreboard.update(session);
         }
 
         else if (phase == GamePhase.ACTIVE) {
@@ -84,6 +87,7 @@ public class GameTickHandler {
             if (ticksLeft <= 0) {
                 startEndgame(event.getServer(), session);
             }
+            GameScoreboard.update(session);
         }
 
         else if (phase == GamePhase.ENDING) {
@@ -110,6 +114,7 @@ public class GameTickHandler {
             }
 
             WinManager.checkWinner(session);
+            GameScoreboard.update(session);
         }
 
         else if (phase == GamePhase.WINNER_ANNOUNCED) {
@@ -120,6 +125,7 @@ public class GameTickHandler {
                         session.getWinnerName() + " wins! Game over."
                 );
             }
+            GameScoreboard.update(session);
         }
     }
 
