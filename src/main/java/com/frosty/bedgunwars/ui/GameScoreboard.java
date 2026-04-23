@@ -3,6 +3,9 @@ package com.frosty.bedgunwars.ui;
 import com.frosty.bedgunwars.game.GamePhase;
 import com.frosty.bedgunwars.game.GameSession;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSetDisplayObjectivePacket;
+import net.minecraft.network.protocol.game.ClientboundSetObjectivePacket;
+import net.minecraft.network.protocol.game.ClientboundSetScorePacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.scores.Objective;
@@ -10,6 +13,7 @@ import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 public class GameScoreboard {
@@ -24,51 +28,54 @@ public class GameScoreboard {
     }
 
     private static void apply(ServerPlayer player, GameSession session) {
-        Scoreboard scoreboard = session.getLevel().getServer().getScoreboard();
+        List<String> lines = buildLines(player, session);
+        Objective obj = buildDummyObjective();
 
-        Objective obj = scoreboard.getObjective(OBJ_NAME);
-        if (obj != null) {
-            scoreboard.removeObjective(obj);
+        player.connection.send(new ClientboundSetObjectivePacket(obj, ClientboundSetObjectivePacket.METHOD_REMOVE));
+        player.connection.send(new ClientboundSetObjectivePacket(obj, ClientboundSetObjectivePacket.METHOD_ADD));
+        player.connection.send(new ClientboundSetDisplayObjectivePacket(Scoreboard.DISPLAY_SLOT_SIDEBAR, obj));
+
+        for (int i = 0; i < lines.size(); i++) {
+            int score = lines.size() - i;
+            player.connection.send(new ClientboundSetScorePacket(
+                    net.minecraft.server.ServerScoreboard.Method.CHANGE,
+                    OBJ_NAME,
+                    lines.get(i),
+                    score
+            ));
         }
+    }
 
-        obj = scoreboard.addObjective(
-                OBJ_NAME,
-                ObjectiveCriteria.DUMMY,
-                Component.literal("§6§lBedGunWars"),
-                ObjectiveCriteria.RenderType.INTEGER
-        );
-
-        scoreboard.setDisplayObjective(Scoreboard.DISPLAY_SLOT_SIDEBAR, obj);
-
+    private static List<String> buildLines(ServerPlayer player, GameSession session) {
+        List<String> lines = new ArrayList<>();
         GamePhase phase = session.getPhase();
         int total = session.getPlayers().size();
         int alive = total - session.getEliminatedPlayers().size();
-        int line = 15;
 
-        add(scoreboard, obj, "§7§m-----------", line--);
+        lines.add("§7§m-----------");
 
         if (phase == GamePhase.PREPARATION) {
             int secs = session.getPrepTimeTicks() / 20;
-            add(scoreboard, obj, "§ePhase: §fPreparation", line--);
-            add(scoreboard, obj, "§eTime: §f" + formatTime(secs), line--);
-            add(scoreboard, obj, "§7Place your bed!", line--);
+            lines.add("§ePhase: §fPreparation");
+            lines.add("§eTime: §f" + formatTime(secs));
+            lines.add("§7Place your bed!");
         } else if (phase == GamePhase.ACTIVE) {
             int secs = session.getMatchTimeTicks() / 20;
-            add(scoreboard, obj, "§ePhase: §fMatch", line--);
-            add(scoreboard, obj, "§eTime: §f" + formatTime(secs), line--);
-            add(scoreboard, obj, "§eMode: §f" + session.getMode().name(), line--);
+            lines.add("§ePhase: §fMatch");
+            lines.add("§eTime: §f" + formatTime(secs));
+            lines.add("§eMode: §f" + session.getMode().name());
         } else if (phase == GamePhase.ENDING) {
             int secs = session.getEndgameBorderShrinkTicks() / 20;
-            add(scoreboard, obj, "§cPhase: §fEndgame", line--);
-            add(scoreboard, obj, "§cBorder shrinks: §f" + formatTime(secs), line--);
-            add(scoreboard, obj, "§cNo respawns!", line--);
+            lines.add("§cPhase: §fEndgame");
+            lines.add("§cBorder shrinks: §f" + formatTime(secs));
+            lines.add("§cNo respawns!");
         } else if (phase == GamePhase.WINNER_ANNOUNCED) {
-            add(scoreboard, obj, "§6Winner:", line--);
-            add(scoreboard, obj, "§f" + (session.getWinnerName() != null ? session.getWinnerName() : "?"), line--);
+            lines.add("§6Winner:");
+            lines.add("§f" + (session.getWinnerName() != null ? session.getWinnerName() : "?"));
         }
 
-        add(scoreboard, obj, "§7§m-----------", line--);
-        add(scoreboard, obj, "§eAlive: §f" + alive + "§7/§f" + total, line--);
+        lines.add("§7§m----------");
+        lines.add("§eAlive: §f" + alive + "§7/§f" + total);
 
         if (session.getMode().name().equals("TEAMS")) {
             long redAlive = session.getPlayers().stream()
@@ -79,29 +86,37 @@ public class GameScoreboard {
                     .filter(u -> !session.isEliminated(u))
                     .filter(u -> "BLUE".equals(session.getPlayerTeam(u)))
                     .count();
-            add(scoreboard, obj, "§cRed: §f" + redAlive, line--);
-            add(scoreboard, obj, "§9Blue: §f" + blueAlive, line--);
+            lines.add("§cRed: §f" + redAlive);
+            lines.add("§9Blue: §f" + blueAlive);
         }
 
-        add(scoreboard, obj, "§7§m-----------", line--);
-        String bedStatus = session.hasPlacedBed(player.getUUID())
-                ? (session.isBedBroken(player.getUUID()) ? "§cDestroyed" : "§aSafe")
+        lines.add("§7§m-----------");
+
+        UUID uuid = player.getUUID();
+        String bedStatus = session.hasPlacedBed(uuid)
+                ? (session.isBedBroken(uuid) ? "§cDestroyed" : "§aSafe")
                 : "§7Not placed";
-        add(scoreboard, obj, "§eBed: " + bedStatus, line--);
-        add(scoreboard, obj, "§7§m-----------", line);
+        lines.add("§eBed: " + bedStatus);
+        lines.add("§7§m----------");
+
+        return lines;
     }
 
     public static void remove(MinecraftServer server) {
-        Scoreboard scoreboard = server.getScoreboard();
-        Objective obj = scoreboard.getObjective(OBJ_NAME);
-        if (obj != null) {
-            scoreboard.setDisplayObjective(Scoreboard.DISPLAY_SLOT_SIDEBAR, null);
-            scoreboard.removeObjective(obj);
+        Objective obj = buildDummyObjective();
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            player.connection.send(new ClientboundSetObjectivePacket(obj, ClientboundSetObjectivePacket.METHOD_REMOVE));
         }
     }
 
-    private static void add(Scoreboard scoreboard, Objective obj, String text, int score) {
-        scoreboard.getOrCreatePlayerScore(text, obj).setScore(score);
+    private static Objective buildDummyObjective() {
+        return new Objective(
+                new Scoreboard(),
+                OBJ_NAME,
+                ObjectiveCriteria.DUMMY,
+                Component.literal("§6§lMatch"),
+                ObjectiveCriteria.RenderType.INTEGER
+        );
     }
 
     private static String formatTime(int totalSeconds) {
