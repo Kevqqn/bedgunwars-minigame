@@ -203,6 +203,7 @@ public class GameCommand {
         return 1;
     }
 
+
     public static int setMatchTime(CommandSourceStack source, int seconds) {
         if (!GameManager.hasGame()) {
             source.sendFailure(Component.literal("No active game"));
@@ -303,19 +304,14 @@ public class GameCommand {
     private static void giveStarterItems(List<ServerPlayer> players) {
         for (ServerPlayer player : players) {
             player.getInventory().clearContent();
-
-            // Armor
             player.getInventory().armor.set(3, new ItemStack(Items.NETHERITE_HELMET));
             player.getInventory().armor.set(2, new ItemStack(Items.NETHERITE_CHESTPLATE));
             player.getInventory().armor.set(1, new ItemStack(Items.NETHERITE_LEGGINGS));
             player.getInventory().armor.set(0, new ItemStack(Items.NETHERITE_BOOTS));
-
-            // Hotbar items
-            player.getInventory().add(new ItemStack(Items.RED_BED, 1));
-            player.getInventory().add(new ItemStack(Items.GOLDEN_APPLE, 64));
-            player.getInventory().add(new ItemStack(Items.NETHERITE_PICKAXE, 1));
-            player.getInventory().add(new ItemStack(Items.STONE, 64));
-
+            player.getInventory().setItem(0, new ItemStack(Items.RED_BED, 1));
+            player.getInventory().setItem(1, new ItemStack(Items.GOLDEN_APPLE, 1));
+            player.getInventory().setItem(2, new ItemStack(Items.NETHERITE_PICKAXE, 1));
+            player.getInventory().setItem(3, new ItemStack(Items.STONE, 64));
             player.containerMenu.broadcastChanges();
         }
     }

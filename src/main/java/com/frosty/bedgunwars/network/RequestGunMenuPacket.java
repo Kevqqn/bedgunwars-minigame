@@ -7,8 +7,10 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
+import com.frosty.bedgunwars.game.GunSelectionManager;
 
 import java.util.function.Supplier;
+import java.util.List;
 
 public class RequestGunMenuPacket {
 
@@ -28,11 +30,9 @@ public class RequestGunMenuPacket {
             if (session.getPhase() != GamePhase.PREPARATION) return;
             if (!session.getPlayers().contains(player.getUUID())) return;
 
-            ResourceLocation current = session.getGunSelectionManager().getSelection(player.getUUID());
-            PacketHandler.sendToClient(player, new OpenGunMenuPacket(
-                    session.getGunSelectionManager().getAvailableGuns(),
-                    current
-            ));
+            List<ResourceLocation> allGuns = GunSelectionManager.getAllAvailableGuns();
+            List<ResourceLocation> current = session.getGunSelectionManager().getSelections(player.getUUID());
+            PacketHandler.sendToClient(player, new OpenGunMenuPacket(allGuns, current));
         });
         ctx.get().setPacketHandled(true);
     }

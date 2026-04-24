@@ -1,32 +1,34 @@
 package com.frosty.bedgunwars.network;
 
-import com.frosty.bedgunwars.game.GameManager;
-import com.frosty.bedgunwars.game.GamePhase;
-import com.frosty.bedgunwars.game.GameSession;
-import com.frosty.bedgunwars.game.GunHelper;
+import com.frosty.bedgunwars.game.*;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
 
-import java.util.function.Supplier;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 public class SelectGunPacket {
 
-    private final ResourceLocation gunId;
+    private final List<ResourceLocation> gunIds;
 
-    public SelectGunPacket(ResourceLocation gunId) {
-        this.gunId = gunId;
+    public SelectGunPacket(List<ResourceLocation> gunIds) {
+        this.gunIds = gunIds;
     }
 
     public static void encode(SelectGunPacket msg, FriendlyByteBuf buf) {
-        buf.writeResourceLocation(msg.gunId);
+        buf.writeInt(msg.gunIds.size());
+        for (ResourceLocation id : msg.gunIds) buf.writeResourceLocation(id);
     }
 
     public static SelectGunPacket decode(FriendlyByteBuf buf) {
-        return new SelectGunPacket(buf.readResourceLocation());
+        int count = buf.readInt();
+        List<ResourceLocation> ids = new ArrayList<>();
+        for (int i = 0; i < count; i++) ids.add(buf.readResourceLocation());
+        return new SelectGunPacket(ids);
     }
 
     public static void handle(SelectGunPacket msg, Supplier<NetworkEvent.Context> ctx) {
@@ -39,15 +41,18 @@ public class SelectGunPacket {
             if (session.getPhase() != GamePhase.PREPARATION) return;
             if (!session.getPlayers().contains(player.getUUID())) return;
 
-            List<ResourceLocation> available = session.getGunSelectionManager().getAvailableGuns();
-            if (!available.contains(msg.gunId)) return;
+            List<ResourceLocation> allGuns = GunSelectionManager.getAllAvailableGuns();
+            List<ResourceLocation> validated = new ArrayList<>();
+            for (ResourceLocation id : msg.gunIds) {
+                if (allGuns.contains(id)) validated.add(id);
+                if (validated.size() >= session.getGunSelectionManager().getMaxGunSlots()) break;
+            }
 
-            session.getGunSelectionManager().setSelection(player.getUUID(), msg.gunId);
-
-            // Remove any existing gun from inventory, then give the selected one
+            session.getGunSelectionManager().setSelections(player.getUUID(), validated);
             removeGunsFromInventory(player);
-            ItemStack gun = GunHelper.buildGun(msg.gunId);
-            player.getInventory().add(gun);
+            for (ResourceLocation id : validated) {
+                player.getInventory().add(GunHelper.buildGun(id));
+            }
             player.containerMenu.broadcastChanges();
         });
         ctx.get().setPacketHandled(true);

@@ -1,6 +1,9 @@
 package com.frosty.bedgunwars.game;
 
+import com.tacz.guns.api.item.IGun;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.registries.ForgeRegistries;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -9,36 +12,37 @@ import java.util.UUID;
 
 public class GunSelectionManager {
 
-    public static final List<ResourceLocation> DEFAULT_GUNS = List.of(
-            ResourceLocation.fromNamespaceAndPath("tacz", "ak47"),
-            ResourceLocation.fromNamespaceAndPath("tacz", "m4a1"),
-            ResourceLocation.fromNamespaceAndPath("tacz", "m700")
-    );
+    private final Map<UUID, List<ResourceLocation>> playerSelections = new HashMap<>();
+    private static final int MAX_GUN_SLOTS = 3;
 
-    private final List<ResourceLocation> availableGuns;
-    private final Map<UUID, ResourceLocation> playerSelections = new HashMap<>();
-
-    public GunSelectionManager() {
-        this.availableGuns = new ArrayList<>(DEFAULT_GUNS);
+    public static List<ResourceLocation> getAllAvailableGuns() {
+        List<ResourceLocation> guns = new ArrayList<>();
+        ForgeRegistries.ITEMS.getEntries().forEach(entry -> {
+            if (entry.getValue() instanceof IGun) {
+                guns.add(entry.getKey().location());
+            }
+        });
+        guns.sort((a, b) -> a.getPath().compareTo(b.getPath()));
+        return guns;
     }
 
-    public List<ResourceLocation> getAvailableGuns() {
-        return availableGuns;
+    public void setSelections(UUID player, List<ResourceLocation> selections) {
+        playerSelections.put(player, new ArrayList<>(selections));
     }
 
-    public void setSelection(UUID player, ResourceLocation gunId) {
-        playerSelections.put(player, gunId);
-    }
-
-    public ResourceLocation getSelection(UUID player) {
-        return playerSelections.getOrDefault(player, availableGuns.get(0));
+    public List<ResourceLocation> getSelections(UUID player) {
+        return playerSelections.getOrDefault(player, new ArrayList<>());
     }
 
     public boolean hasSelected(UUID player) {
-        return playerSelections.containsKey(player);
+        return playerSelections.containsKey(player) && !playerSelections.get(player).isEmpty();
     }
 
     public void clear() {
         playerSelections.clear();
+    }
+
+    public int getMaxGunSlots() {
+        return MAX_GUN_SLOTS;
     }
 }

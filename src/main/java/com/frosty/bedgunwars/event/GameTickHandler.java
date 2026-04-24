@@ -1,18 +1,13 @@
 package com.frosty.bedgunwars.event;
 
-import com.frosty.bedgunwars.game.BossBarManager;
-import com.frosty.bedgunwars.game.GameCleanupManager;
-import com.frosty.bedgunwars.game.GameManager;
-import com.frosty.bedgunwars.game.GamePhase;
-import com.frosty.bedgunwars.game.GameSession;
-import com.frosty.bedgunwars.game.SoundHelper;
-import com.frosty.bedgunwars.game.WinManager;
+import com.frosty.bedgunwars.game.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameRules;
@@ -22,7 +17,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.border.WorldBorder;
 import net.minecraftforge.event.TickEvent;
 import com.frosty.bedgunwars.ui.GameScoreboard;
-import com.frosty.bedgunwars.game.GunHelper;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 import java.util.UUID;
@@ -79,9 +73,9 @@ public class GameTickHandler {
                 ServerPlayer p = event.getServer().getPlayerList().getPlayer(uuid);
                 if (p == null) continue;
                 if (!session.getGunSelectionManager().hasSelected(uuid)) {
-                    p.getInventory().add(GunHelper.buildGun(
-                            session.getGunSelectionManager().getAvailableGuns().get(0)
-                    ));
+                    ResourceLocation defaultGun = GunSelectionManager.getAllAvailableGuns().isEmpty()
+                            ? null : GunSelectionManager.getAllAvailableGuns().get(0);
+                    if (defaultGun != null) p.getInventory().add(GunHelper.buildGun(defaultGun));
                     p.containerMenu.broadcastChanges();
                 }
             }
