@@ -272,7 +272,6 @@ public class GunSelectionScreen extends Screen {
                 scrollOffset = 0;
                 return true;
             }
-            if (mouseY >= LIST_Y - TAB_HEIGHT - 2 && mouseY <= LIST_Y) return true;
         }
 
         // List click
