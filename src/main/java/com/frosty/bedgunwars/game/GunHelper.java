@@ -1,6 +1,5 @@
 package com.frosty.bedgunwars.game;
 
-import com.tacz.guns.api.item.IGun;
 import com.tacz.guns.api.item.builder.GunItemBuilder;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
@@ -20,20 +19,42 @@ public class GunHelper {
         }
     }
 
-    public static boolean isGunItem(ResourceLocation id) {
+    public static ItemStack buildAttachment(ResourceLocation attachmentId) {
         try {
-            var item = ForgeRegistries.ITEMS.getValue(id);
-            return item instanceof IGun;
+            var item = ForgeRegistries.ITEMS.getValue(ResourceLocation.fromNamespaceAndPath("tacz", "attachment"));
+            if (item == null) return ItemStack.EMPTY;
+            ItemStack stack = new ItemStack(item);
+            stack.getOrCreateTag().putString("AttachmentId", attachmentId.toString());
+            return stack;
+        } catch (Exception e) {
+            return ItemStack.EMPTY;
+        }
+    }
+
+    public static ItemStack buildCreativeAmmoBox() {
+        ItemStack item = new ItemStack(ForgeRegistries.ITEMS.getValue(
+                ResourceLocation.fromNamespaceAndPath("tacz", "ammo_box")));
+        item.getOrCreateTag().putBoolean("AllTypeCreative", true);
+        return item;
+    }
+
+    public static boolean isGunId(ResourceLocation id) {
+        try {
+            return com.tacz.guns.api.TimelessAPI.getCommonGunIndex(id).isPresent();
         } catch (Exception e) {
             return false;
         }
     }
 
-    public static String getGunDisplayName(ResourceLocation gunId) {
-        return formatPath(gunId.getPath());
+    public static String getGunDisplayName(ResourceLocation id) {
+        return formatPath(id.getPath());
     }
 
-    private static String formatPath(String path) {
+    public static String getAttachmentDisplayName(ResourceLocation id) {
+        return formatPath(id.getPath());
+    }
+
+    public static String formatPath(String path) {
         String[] words = path.split("_");
         StringBuilder sb = new StringBuilder();
         for (String word : words) {

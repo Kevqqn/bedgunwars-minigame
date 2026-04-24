@@ -7,6 +7,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
+import com.frosty.bedgunwars.game.GunHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -43,7 +44,6 @@ public class SelectGunPacket {
             if (!session.getPlayers().contains(player.getUUID())) return;
 
             GunSelectionManager gsm = session.getGunSelectionManager();
-
             List<ResourceLocation> validated = new ArrayList<>();
             for (ResourceLocation id : msg.gunIds) {
                 validated.add(id);
@@ -51,14 +51,11 @@ public class SelectGunPacket {
             }
 
             gsm.setGunSelections(player.getUUID(), validated);
-            removeGunsFromInventory(player);
 
+            removeGunsFromInventory(player);
             for (ResourceLocation id : validated) {
-                try {
-                    ItemStack stack = com.tacz.guns.api.item.builder.AttachmentItemBuilder.create()
-                            .setId(id).build();
-                    if (!stack.isEmpty()) player.getInventory().add(stack);
-                } catch (Exception ignored) {}
+                ItemStack stack = GunHelper.buildGun(id);
+                if (!stack.isEmpty()) player.getInventory().add(stack);
             }
             player.containerMenu.broadcastChanges();
         });

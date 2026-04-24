@@ -23,23 +23,27 @@ public class GunSelectionManager {
 
     public static List<ResourceLocation> getAllAvailableGuns() {
         List<ResourceLocation> guns = new ArrayList<>();
-        ForgeRegistries.ITEMS.getEntries().forEach(entry -> {
-            if (entry.getValue() instanceof IGun) {
-                guns.add(entry.getKey().location());
-            }
-        });
+        try {
+            com.tacz.guns.api.TimelessAPI.getAllCommonGunIndex().forEach(entry ->
+                    guns.add(entry.getKey()));
+        } catch (Exception e) {
+            guns.add(ResourceLocation.fromNamespaceAndPath("tacz", "ak47"));
+            guns.add(ResourceLocation.fromNamespaceAndPath("tacz", "m4a1"));
+            guns.add(ResourceLocation.fromNamespaceAndPath("tacz", "m700"));
+        }
         guns.sort(Comparator.comparing(ResourceLocation::getPath));
         return guns;
     }
 
     public static List<ResourceLocation> getAllAvailableAttachments() {
         List<ResourceLocation> list = new ArrayList<>();
-        for (var entry : ForgeRegistries.ITEMS.getEntries()) {
-            if (entry.getValue() instanceof com.tacz.guns.api.item.IAttachment) {
-                list.add(entry.getKey().location());
-            }
+        try {
+            com.tacz.guns.api.TimelessAPI.getAllCommonAttachmentIndex().forEach(entry ->
+                    list.add(entry.getKey()));
+        } catch (Exception e) {
+            // no attachments available
         }
-        list.sort((a, b) -> a.getPath().compareTo(b.getPath()));
+        list.sort(Comparator.comparing(ResourceLocation::getPath));
         return list;
     }
 
@@ -54,7 +58,7 @@ public class GunSelectionManager {
                 list.add(id);
             }
         }
-        list.sort((a, b) -> a.getPath().compareTo(b.getPath()));
+        list.sort(Comparator.comparing(ResourceLocation::getPath));
         return list;
     }
 
