@@ -92,13 +92,13 @@ public class GunSelectionScreen extends Screen {
         };
     }
 
-    private String activeTabLabel() {
-        return switch (activeTab) {
-            case 1  -> "Attachments";
-            case 2  -> "Throwables";
-            default -> "Weapons";
-        };
-    }
+//    private String activeTabLabel() {
+//        return switch (activeTab) {
+//            case 1  -> "Attachments";
+//            case 2  -> "Throwables";
+//            default -> "Weapons";
+//        };
+//    }
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
@@ -121,7 +121,7 @@ public class GunSelectionScreen extends Screen {
         // Subtitle
         String subtitle = "§7Choose up to " + maxPicks + "  •  Scroll  •  ESC to close";
         if (activeTab >= 1) subtitle = "§7Click to add (up to " + maxPicks + " picks)  •  Right-click to remove  •  ESC";
-        g.drawCenteredString(font, subtitle, this.width / 2, LIST_Y - 12, 0xAAAAAA);
+        g.drawCenteredString(font, subtitle, this.width / 2, LIST_Y - 36, 0xAAAAAA);
 
         // List background
         g.fill(listX - 2, listY - 2, listX + LIST_WIDTH + 2, listY + listHeight + 2, 0xFF222222);
@@ -186,7 +186,7 @@ public class GunSelectionScreen extends Screen {
     }
 
     private void renderTabs(GuiGraphics g, int mouseX, int mouseY) {
-        String[] labels = {"⚔ Weapons", "🔧 Attachments", "💣 Throwables"};
+        String[] labels = {"⚔ Weapons", "🔧 Attachments", "(WIP) Throwables"}; // bruh throwables is not in official TACZ
         int tabW   = 100;
         int tabY   = LIST_Y - TAB_HEIGHT - 2;
         int startX = this.width / 2 + LIST_X_OFFSET;

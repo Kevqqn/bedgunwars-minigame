@@ -21,22 +21,27 @@ public class GunHelper {
 
     public static ItemStack buildAttachment(ResourceLocation attachmentId) {
         try {
-            var item = ForgeRegistries.ITEMS.getValue(ResourceLocation.fromNamespaceAndPath("tacz", "attachment"));
-            if (item == null) return ItemStack.EMPTY;
-            ItemStack stack = new ItemStack(item);
-            stack.getOrCreateTag().putString("AttachmentId", attachmentId.toString());
+            // Create the base tacz:attachment item
+            var attachmentItem = ForgeRegistries.ITEMS.getValue(ResourceLocation.fromNamespaceAndPath("tacz", "attachment"));
+            if (attachmentItem == null || attachmentItem == Items.AIR) return ItemStack.EMPTY;
+
+            ItemStack stack = new ItemStack(attachmentItem);
+            CompoundTag tag = stack.getOrCreateTag();
+            tag.putString("AttachmentId", attachmentId.toString());
+
             return stack;
         } catch (Exception e) {
             return ItemStack.EMPTY;
         }
     }
 
-    public static ItemStack buildCreativeAmmoBox() {
-        ItemStack item = new ItemStack(ForgeRegistries.ITEMS.getValue(
-                ResourceLocation.fromNamespaceAndPath("tacz", "ammo_box")));
-        item.getOrCreateTag().putBoolean("AllTypeCreative", true);
-        return item;
-    }
+// Unused
+//    public static ItemStack buildCreativeAmmoBox() {
+//        ItemStack item = new ItemStack(ForgeRegistries.ITEMS.getValue(
+//                ResourceLocation.fromNamespaceAndPath("tacz", "ammo_box")));
+//        item.getOrCreateTag().putBoolean("AllTypeCreative", true);
+//        return item;
+//    }
 
     public static boolean isGunId(ResourceLocation id) {
         try {

@@ -36,25 +36,30 @@ public class GunSelectionManager {
     }
 
     public static List<ResourceLocation> getAllAvailableAttachments() {
-        List<ResourceLocation> list = new ArrayList<>();
+        List<ResourceLocation> guns = new ArrayList<>();
         try {
             com.tacz.guns.api.TimelessAPI.getAllCommonAttachmentIndex().forEach(entry ->
-                    list.add(entry.getKey()));
+                    guns.add(entry.getKey()));
         } catch (Exception e) {
-            // no attachments available
+            guns.add(ResourceLocation.fromNamespaceAndPath("tacz", "ak47"));
+            guns.add(ResourceLocation.fromNamespaceAndPath("tacz", "m4a1"));
+            guns.add(ResourceLocation.fromNamespaceAndPath("tacz", "m700"));
         }
-        list.sort(Comparator.comparing(ResourceLocation::getPath));
-        return list;
+        guns.sort(Comparator.comparing(ResourceLocation::getPath));
+        return guns;
     }
 
-    public static List<ResourceLocation> getAllAvailableThrowables() {
-        List<ResourceLocation> list = new ArrayList<>();
+    public static List getAllAvailableThrowables() {
+        List list = new ArrayList<>();
         for (var entry : ForgeRegistries.ITEMS.getEntries()) {
             ResourceLocation id = entry.getKey().location();
+            if (!id.getNamespace().equals("tacz")) continue; // ✅ Only TaCZ items
+
             String path = id.getPath();
             if (path.contains("grenade") || path.contains("smoke") ||
                     path.contains("flashbang") || path.contains("flash") ||
-                    path.contains("throwable") || path.contains("frag")) {
+                    path.contains("throwable") || path.contains("frag") ||
+                    path.contains("molotov") || path.contains("c4")) {
                 list.add(id);
             }
         }
