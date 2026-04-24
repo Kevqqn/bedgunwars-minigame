@@ -17,16 +17,6 @@ public class GunHelper {
         }
     }
 
-    public static ItemStack buildCreativeAmmoBox() {
-        ItemStack item = new ItemStack(ForgeRegistries.ITEMS.getValue(
-                ResourceLocation.fromNamespaceAndPath("tacz", "ammo_box")));
-        CompoundTag tag = item.getOrCreateTag();
-        tag.putBoolean("Creative", true);
-        tag.putBoolean("AllType", true);
-        tag.putInt("Level", 3);
-        return item;
-    }
-
     public static String getGunDisplayName(ResourceLocation gunId) {
         String path = gunId.getPath();
         String[] words = path.split("_");

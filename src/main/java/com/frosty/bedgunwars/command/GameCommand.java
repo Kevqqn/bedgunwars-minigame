@@ -8,7 +8,9 @@ import com.frosty.bedgunwars.game.GamePhase;
 import com.frosty.bedgunwars.game.GameSession;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -312,6 +314,13 @@ public class GameCommand {
             player.getInventory().setItem(1, new ItemStack(Items.GOLDEN_APPLE, 1));
             player.getInventory().setItem(2, new ItemStack(Items.NETHERITE_PICKAXE, 1));
             player.getInventory().setItem(3, new ItemStack(Items.STONE, 64));
+
+            ItemStack ammoBox = new ItemStack(BuiltInRegistries.ITEM.get(ResourceLocation.fromNamespaceAndPath("tacz", "ammo_box")), 1);
+            if (!ammoBox.isEmpty()) {
+                ammoBox.getOrCreateTag().putBoolean("AllTypeCreative", true);
+                player.getInventory().add(ammoBox);
+            }
+
             player.containerMenu.broadcastChanges();
         }
     }

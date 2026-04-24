@@ -64,13 +64,6 @@ public class GameTickHandler {
             GameScoreboard.update(session);
             for (UUID uuid : session.getPlayers()) {
                 ServerPlayer p = event.getServer().getPlayerList().getPlayer(uuid);
-                if (p != null) {
-                    p.getInventory().add(GunHelper.buildCreativeAmmoBox());
-                    p.containerMenu.broadcastChanges();
-                }
-            }
-            for (UUID uuid : session.getPlayers()) {
-                ServerPlayer p = event.getServer().getPlayerList().getPlayer(uuid);
                 if (p == null) continue;
                 if (!session.getGunSelectionManager().hasSelected(uuid)) {
                     ResourceLocation defaultGun = GunSelectionManager.getAllAvailableGuns().isEmpty()
