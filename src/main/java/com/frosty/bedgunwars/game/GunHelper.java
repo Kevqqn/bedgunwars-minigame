@@ -35,6 +35,10 @@ public class GunHelper {
         }
     }
 
+    public static String getAttachmentDisplayName(ResourceLocation attachmentId) {
+        return formatPath(attachmentId.getPath());
+    }
+
 // Unused
 //    public static ItemStack buildCreativeAmmoBox() {
 //        ItemStack item = new ItemStack(ForgeRegistries.ITEMS.getValue(
@@ -52,10 +56,6 @@ public class GunHelper {
     }
 
     public static String getGunDisplayName(ResourceLocation id) {
-        return formatPath(id.getPath());
-    }
-
-    public static String getAttachmentDisplayName(ResourceLocation id) {
         return formatPath(id.getPath());
     }
 

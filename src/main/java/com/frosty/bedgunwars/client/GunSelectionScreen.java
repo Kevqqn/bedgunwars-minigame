@@ -13,6 +13,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraftforge.registries.ForgeRegistries;
+import com.tacz.guns.api.item.builder.AttachmentItemBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -155,7 +156,7 @@ public class GunSelectionScreen extends Screen {
             g.renderItem(stack, listX + 3, rowY + 4);
 
             // Name & category
-            String name = GunHelper.getGunDisplayName(itemId);
+            String name = activeTab == 1 ? GunHelper.getAttachmentDisplayName(itemId) : GunHelper.getGunDisplayName(itemId);
             String cat  = activeTab == 0 ? getCategoryLabel(itemId) : getAttachmentCategory(itemId, activeTab);
             g.drawString(font, "§f" + name, listX + 22, rowY + 4, 0xFFFFFF);
             g.drawString(font, "§7" + cat, listX + 22, rowY + 13, 0x888888);
@@ -233,8 +234,7 @@ public class GunSelectionScreen extends Screen {
             if (i < selectedAttachments.size()) {
                 ItemStack s = buildNonGunStack(selectedAttachments.get(i));
                 g.renderItem(s, panelX + 1, slotY);
-                g.drawString(font, "§f" + shorten(GunHelper.getGunDisplayName(selectedAttachments.get(i)), 14),
-                        panelX + 18, slotY + 4, 0xFFFFFF);
+                g.drawString(font, "§f" + shorten(GunHelper.getAttachmentDisplayName(selectedAttachments.get(i)), 14),                        panelX + 18, slotY + 4, 0xFFFFFF);
             } else {
                 g.drawString(font, "§7- empty -", panelX + 4, slotY + 4, 0x444444);
             }
@@ -344,12 +344,14 @@ public class GunSelectionScreen extends Screen {
 
     private ItemStack buildNonGunStack(ResourceLocation id) {
         try {
+            ItemStack s = AttachmentItemBuilder.create().setId(id).build();
+            if (!s.isEmpty()) return s;
+        } catch (Exception ignored) {}
+        try {
             var item = ForgeRegistries.ITEMS.getValue(id);
-            if (item == null || item == net.minecraft.world.item.Items.AIR) return ItemStack.EMPTY;
-            return new ItemStack(item);
-        } catch (Exception e) {
-            return ItemStack.EMPTY;
-        }
+            if (item != null && item != net.minecraft.world.item.Items.AIR) return new ItemStack(item);
+        } catch (Exception ignored) {}
+        return ItemStack.EMPTY;
     }
 
     private String getCategoryLabel(ResourceLocation id) {

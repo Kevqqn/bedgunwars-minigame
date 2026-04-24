@@ -1,12 +1,13 @@
 package com.frosty.bedgunwars.network;
 
 import com.frosty.bedgunwars.game.*;
+import com.tacz.guns.api.item.IAttachment;
+import com.tacz.guns.api.item.builder.AttachmentItemBuilder;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
-import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.*;
 import java.util.function.Supplier;
@@ -45,22 +46,24 @@ public class SelectAttachmentPacket {
                 if (validated.size() >= gsm.getMaxAttachmentPicks()) break;
             }
             gsm.setAttachmentSelections(player.getUUID(), validated);
-            removeFromInventory(player, all);
+            removeFromInventory(player);
             for (ResourceLocation id : validated) {
-                var item = ForgeRegistries.ITEMS.getValue(id);
-                if (item != null) player.getInventory().add(new ItemStack(item));
+                try {
+                    ItemStack stack = AttachmentItemBuilder.create().setId(id).build();
+                    if (!stack.isEmpty()) player.getInventory().add(stack);
+                } catch (Exception ignored) {}
             }
             player.containerMenu.broadcastChanges();
         });
         ctx.get().setPacketHandled(true);
     }
 
-    private static void removeFromInventory(ServerPlayer player, List<ResourceLocation> catalogue) {
+    private static void removeFromInventory(ServerPlayer player) {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack stack = player.getInventory().getItem(i);
-            if (stack.isEmpty()) continue;
-            ResourceLocation id = ForgeRegistries.ITEMS.getKey(stack.getItem());
-            if (id != null && catalogue.contains(id)) player.getInventory().setItem(i, ItemStack.EMPTY);
+            if (!stack.isEmpty() && stack.getItem() instanceof IAttachment) {
+                player.getInventory().setItem(i, ItemStack.EMPTY);
+            }
         }
     }
 }
