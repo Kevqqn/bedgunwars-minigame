@@ -62,16 +62,6 @@ public class GameTickHandler {
                 broadcast(event.getServer(), "Game has started! Destroy enemy beds!");
             }
             GameScoreboard.update(session);
-            for (UUID uuid : session.getPlayers()) {
-                ServerPlayer p = event.getServer().getPlayerList().getPlayer(uuid);
-                if (p == null) continue;
-                if (!session.getGunSelectionManager().hasSelected(uuid)) {
-                    ResourceLocation defaultGun = GunSelectionManager.getAllAvailableGuns().isEmpty()
-                            ? null : GunSelectionManager.getAllAvailableGuns().get(0);
-                    if (defaultGun != null) p.getInventory().add(GunHelper.buildGun(defaultGun));
-                    p.containerMenu.broadcastChanges();
-                }
-            }
         }
 
         else if (phase == GamePhase.ACTIVE) {

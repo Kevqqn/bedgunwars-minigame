@@ -39,6 +39,8 @@ public class BedGunWars {
         System.out.println("BedGunWars Loaded");
     }
 
+    public static final org.apache.logging.log4j.Logger LOGGER = org.apache.logging.log4j.LogManager.getLogger();
+
     @Mod.EventBusSubscriber(modid = BedGunWars.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = net.minecraftforge.api.distmarker.Dist.CLIENT)
     public static class ClientForgeEvents {
         @SubscribeEvent
@@ -154,7 +156,11 @@ public class BedGunWars {
                                                 .executes(ctx -> GameDebugCommand.setPhase(
                                                         ctx.getSource(),
                                                         StringArgumentType.getString(ctx, "phase"))))
+                                        .then(Commands.literal("listtaczitems")
+                                                .executes(ctx -> GameDebugCommand.listTaczItems(ctx.getSource()))
+                                        )
                                 )
+
                         )
         );
     }

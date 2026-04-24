@@ -23,6 +23,10 @@ public class PacketHandler {
                 SelectGunPacket::encode, SelectGunPacket::decode, SelectGunPacket::handle);
         CHANNEL.registerMessage(id++, RequestGunMenuPacket.class,
                 RequestGunMenuPacket::encode, RequestGunMenuPacket::decode, RequestGunMenuPacket::handle);
+        CHANNEL.registerMessage(id++, SelectAttachmentPacket.class,
+                SelectAttachmentPacket::encode, SelectAttachmentPacket::decode, SelectAttachmentPacket::handle);
+        CHANNEL.registerMessage(id++, SelectThrowablePacket.class,
+                SelectThrowablePacket::encode, SelectThrowablePacket::decode, SelectThrowablePacket::handle);
     }
 
     public static void sendToClient(net.minecraft.server.level.ServerPlayer player, Object packet) {

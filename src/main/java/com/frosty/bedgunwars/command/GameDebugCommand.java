@@ -48,6 +48,20 @@ public class GameDebugCommand {
         return 1;
     }
 
+    public static int listTaczItems(CommandSourceStack source) {
+        int count = 0;
+        for (var entry : net.minecraftforge.registries.ForgeRegistries.ITEMS.getEntries()) {
+            if (entry.getKey().location().getNamespace().equals("tacz")) {
+                com.frosty.bedgunwars.BedGunWars.LOGGER.info("TACZ item: {}", entry.getKey().location());
+                count++;
+            }
+        }
+        int finalCount = count;
+        source.sendSuccess(() -> net.minecraft.network.chat.Component.literal(
+                "Logged " + finalCount + " TACZ items to the server log."), false);
+        return 1;
+    }
+
     // /game debug eliminatebed [name] — breaks bed (no drop), kills; PlayerDeathHandler handles elimination
     public static int eliminateBed(CommandSourceStack source, String targetName) {
         GameSession session = GameManager.getSession();

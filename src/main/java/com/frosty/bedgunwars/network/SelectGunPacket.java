@@ -1,6 +1,7 @@
 package com.frosty.bedgunwars.network;
 
 import com.frosty.bedgunwars.game.*;
+import com.tacz.guns.api.item.IGun;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -41,17 +42,23 @@ public class SelectGunPacket {
             if (session.getPhase() != GamePhase.PREPARATION) return;
             if (!session.getPlayers().contains(player.getUUID())) return;
 
-            List<ResourceLocation> allGuns = GunSelectionManager.getAllAvailableGuns();
+            GunSelectionManager gsm = session.getGunSelectionManager();
+
             List<ResourceLocation> validated = new ArrayList<>();
             for (ResourceLocation id : msg.gunIds) {
-                if (allGuns.contains(id)) validated.add(id);
-                if (validated.size() >= session.getGunSelectionManager().getMaxGunSlots()) break;
+                validated.add(id);
+                if (validated.size() >= gsm.getMaxGunSlots()) break;
             }
 
-            session.getGunSelectionManager().setSelections(player.getUUID(), validated);
+            gsm.setGunSelections(player.getUUID(), validated);
             removeGunsFromInventory(player);
+
             for (ResourceLocation id : validated) {
-                player.getInventory().add(GunHelper.buildGun(id));
+                try {
+                    ItemStack stack = com.tacz.guns.api.item.builder.AttachmentItemBuilder.create()
+                            .setId(id).build();
+                    if (!stack.isEmpty()) player.getInventory().add(stack);
+                } catch (Exception ignored) {}
             }
             player.containerMenu.broadcastChanges();
         });
@@ -61,7 +68,15 @@ public class SelectGunPacket {
     private static void removeGunsFromInventory(ServerPlayer player) {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack stack = player.getInventory().getItem(i);
-            if (!stack.isEmpty() && stack.getItem().toString().contains("modern_kinetic_gun")) {
+            if (!stack.isEmpty() && stack.getItem() instanceof IGun) {
+                player.getInventory().setItem(i, ItemStack.EMPTY);
+            }
+        }
+    }
+    private static void removeAttachmentsFromInventory(ServerPlayer player) {
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            ItemStack stack = player.getInventory().getItem(i);
+            if (!stack.isEmpty() && stack.getItem() instanceof com.tacz.guns.api.item.IAttachment) {
                 player.getInventory().setItem(i, ItemStack.EMPTY);
             }
         }
