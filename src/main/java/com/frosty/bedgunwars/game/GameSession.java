@@ -32,6 +32,7 @@ public class GameSession {
     private String winnerName = null;
     private int matchStartPlayerCount = 0;
 
+    private final Map<UUID, Integer> playerKills = new HashMap<>();
     private final Set<UUID> joinedPlayers = new HashSet<>();
     private final Set<UUID> players = new HashSet<>();
     private final Map<UUID, String> playerTeams = new HashMap<>();
@@ -41,6 +42,11 @@ public class GameSession {
     private final Set<UUID> eliminatedPlayers = new HashSet<>();
     private final Set<UUID> pendingRespawnPlayers = new HashSet<>();
     private final GunSelectionManager gunSelectionManager = new GunSelectionManager();
+    private final Map<UUID, net.minecraft.core.BlockPos> lastKnownPositions = new HashMap<>();
+    private final Map<UUID, Integer> noMoveTicks = new HashMap<>();
+    private final Map<UUID, Integer> glowTicks = new HashMap<>();
+    private static final int NO_MOVE_THRESHOLD = 15 * 20;
+    private static final int GLOW_DURATION = 3 * 20;
 
     private final Map<UUID, PlayerSnapshot> savedPlayerStates = new HashMap<>();
 
@@ -57,6 +63,8 @@ public class GameSession {
         this.joinedPlayers.add(hostUuid);
     }
 
+    public int getKills(UUID uuid) { return playerKills.getOrDefault(uuid, 0); }
+    public void addKill(UUID uuid) { playerKills.merge(uuid, 1, Integer::sum); }
     public ServerLevel getLevel() { return level; }
     public BlockPos getBeaconPos() { return beaconPos; }
     public GameModeType getMode() { return mode; }
@@ -69,7 +77,7 @@ public class GameSession {
     public boolean isActive() { return active; }
     public void end() { this.active = false; }
 
-    // --- Prep timer ---
+    // prpep timer
     public int getPrepTimeTicks() { return prepTimeTicks; }
     public int getInitialPrepTicks() { return initialPrepTicks; }
 
@@ -82,7 +90,7 @@ public class GameSession {
         if (prepTimeTicks > 0) prepTimeTicks--;
     }
 
-    // --- Match timer ---
+    // Match timer
     public int getMatchTimeTicks() { return matchTimeTicks; }
     public int getInitialMatchTicks() { return initialMatchTicks; }
 
@@ -115,23 +123,30 @@ public class GameSession {
     private int endgameBorderShrinkTicks = 0;
     private int endgameBorderShrinkInterval = 2 * 60 * 20;
 
-    // --- Border ---
+    // Border
     public int getBorderRadius() { return borderRadius; }
     public void setBorderRadius(int borderRadius) { this.borderRadius = borderRadius; }
 
-    // --- Player counts ---
+    // Player counts
     public int getMatchStartPlayerCount() { return matchStartPlayerCount; }
     public void setMatchStartPlayerCount(int count) { this.matchStartPlayerCount = count; }
 
-    // --- Joined players ---
+    // Joined players
     public Set<UUID> getJoinedPlayers() { return joinedPlayers; }
     public boolean addJoinedPlayer(UUID uuid) { return joinedPlayers.add(uuid); }
     public boolean removeJoinedPlayer(UUID uuid) { return joinedPlayers.remove(uuid); }
     public boolean isJoined(UUID uuid) { return joinedPlayers.contains(uuid); }
 
-    // --- Active players ---
+    // Active players
     public Set<UUID> getPlayers() { return players; }
     public void addPlayer(UUID uuid) { players.add(uuid); }
+
+    // anti sitting duck on end game
+    public Map<UUID, net.minecraft.core.BlockPos> getLastKnownPositions() { return lastKnownPositions; }
+    public Map<UUID, Integer> getNoMoveTicks() { return noMoveTicks; }
+    public Map<UUID, Integer> getGlowTicks() { return glowTicks; }
+    public int getNoMoveThreshold() { return NO_MOVE_THRESHOLD; }
+    public int getGlowDuration() { return GLOW_DURATION; }
 
     // --- Teams ---
     public Map<UUID, String> getPlayerTeams() { return playerTeams; }

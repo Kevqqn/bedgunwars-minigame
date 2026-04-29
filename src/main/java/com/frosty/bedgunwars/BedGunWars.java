@@ -155,13 +155,16 @@ public class BedGunWars {
                                                 .suggests(phaseSuggestions)
                                                 .executes(ctx -> GameDebugCommand.setPhase(
                                                         ctx.getSource(),
-                                                        StringArgumentType.getString(ctx, "phase"))))
-                                        .then(Commands.literal("listtaczitems")
-                                                .executes(ctx -> GameDebugCommand.listTaczItems(ctx.getSource()))
+                                                        StringArgumentType.getString(ctx, "phase")))
                                         )
                                 )
-
+                                .then(Commands.literal("forcebordershrink")
+                                        .executes(ctx -> GameDebugCommand.forceBorderShrink(ctx.getSource()))
+                                )
+                                .then(Commands.literal("listtaczitems")
+                                        .executes(ctx -> GameDebugCommand.listTaczItems(ctx.getSource())))
                         )
+
         );
     }
 }

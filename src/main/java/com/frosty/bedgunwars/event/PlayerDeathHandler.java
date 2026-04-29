@@ -34,6 +34,13 @@ public class PlayerDeathHandler {
             return;
         }
 
+        // ADD after each session.eliminatePlayer(uuid) call:
+        if (event.getSource().getEntity() instanceof ServerPlayer killer) {
+            if (!killer.getUUID().equals(uuid)) {
+                session.addKill(killer.getUUID());
+            }
+        }
+
         boolean hasBed = session.hasPlacedBed(uuid);
         boolean bedBroken = session.isBedBroken(uuid);
 
@@ -49,6 +56,17 @@ public class PlayerDeathHandler {
             // Check if this elimination ends the game
             WinManager.checkWinner(session);
         }
+    }
+
+    @SubscribeEvent
+    public void onLivingHurt(net.minecraftforge.event.entity.living.LivingHurtEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        if (!GameManager.hasGame()) return;
+        GameSession session = GameManager.getSession();
+        if (session == null || !session.isActive()) return;
+        if (session.getPhase() != GamePhase.PREPARATION) return;
+        if (!session.getPlayers().contains(player.getUUID())) return;
+        event.setCanceled(true);
     }
 
     private void sendNotice(ServerPlayer player, String message) {

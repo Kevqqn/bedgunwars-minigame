@@ -99,7 +99,7 @@ public class GameScoreboard {
                 : "§7Not placed";
         lines.add("§eBed: " + bedStatus);
         lines.add("§7§m----------");
-
+        lines.add("§eKills: §f" + session.getKills(uuid));
         return lines;
     }
 

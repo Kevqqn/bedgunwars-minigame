@@ -18,7 +18,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -50,6 +49,10 @@ public class GameCommand {
         source.sendSuccess(() -> Component.literal("Game created in " + mode.name() + " mode."), true);
         source.sendSuccess(() -> Component.literal("You are the host. Other players can now use /game join."), false);
         source.sendSuccess(() -> Component.literal("Set border with /game border <size>"), false);
+
+        source.getServer().getPlayerList().getPlayers().forEach(p ->
+                p.sendSystemMessage(Component.literal("§6[NOTICE] §eA game has been started. Type §f/game join §eto participate."))
+        );
         return 1;
     }
 
@@ -311,7 +314,7 @@ public class GameCommand {
             player.getInventory().armor.set(1, new ItemStack(Items.NETHERITE_LEGGINGS));
             player.getInventory().armor.set(0, new ItemStack(Items.NETHERITE_BOOTS));
             player.getInventory().setItem(0, new ItemStack(Items.RED_BED, 1));
-            player.getInventory().setItem(1, new ItemStack(Items.GOLDEN_APPLE, 1));
+            player.getInventory().setItem(1, new ItemStack(Items.GOLDEN_APPLE, 32));
             player.getInventory().setItem(2, new ItemStack(Items.NETHERITE_PICKAXE, 1));
             player.getInventory().setItem(3, new ItemStack(Items.STONE, 64));
 

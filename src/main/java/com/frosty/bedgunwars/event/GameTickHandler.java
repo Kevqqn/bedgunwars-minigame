@@ -7,7 +7,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameRules;
@@ -18,6 +17,15 @@ import net.minecraft.world.level.border.WorldBorder;
 import net.minecraftforge.event.TickEvent;
 import com.frosty.bedgunwars.ui.GameScoreboard;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import java.util.Map;
+
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
+import java.util.List;
 
 import java.util.UUID;
 
@@ -33,6 +41,7 @@ public class GameTickHandler {
         GamePhase phase = session.getPhase();
 
         if (phase == GamePhase.PREPARATION) {
+            applyPrepEffects(event.getServer(), session);
             int ticksLeft = session.getPrepTimeTicks();
             int initialTicks = session.getInitialPrepTicks();
             int secondsLeft = ticksLeft / 20;
@@ -55,6 +64,7 @@ public class GameTickHandler {
 
             if (session.getPrepTimeTicks() <= 0) {
                 session.setPhase(GamePhase.ACTIVE);
+                liftPrepEffects(event.getServer(), session);
                 event.getServer().getGameRules().getRule(GameRules.RULE_KEEPINVENTORY).set(true, event.getServer());
                 for (ServerPlayer p : event.getServer().getPlayerList().getPlayers()) {
                     SoundHelper.playNoteClick(p, SoundHelper.noteToPitch(25));
@@ -103,11 +113,12 @@ public class GameTickHandler {
             session.decreaseEndgameShrinkTicks();
 
             if (session.getEndgameBorderShrinkTicks() <= 0) {
-                shrinkBorder(session, 30);
+                shrinkBorder(session, 30, Math.max(1, interval / 20));
                 session.setEndgameBorderShrinkTicks(interval);
-                broadcast(event.getServer(), "The border has shrunk by 30 blocks!");
+                broadcast(event.getServer(), "§cThe border is shrinking!");
             }
 
+            tickAntiSittingDuck(event.getServer(), session);
             WinManager.checkWinner(session);
             GameScoreboard.update(session);
         }
@@ -121,6 +132,47 @@ public class GameTickHandler {
                         session.getWinnerName() + " wins! Game over."
                 );
             }
+        }
+    }
+
+    private void applyPrepEffects(MinecraftServer server, GameSession session) {
+        List<UUID> playerUuids = session.getPlayers().stream().toList();
+        List<ServerPlayer> onlinePlayers = playerUuids.stream()
+                .map(uuid -> server.getPlayerList().getPlayer(uuid))
+                .filter(p -> p != null)
+                .toList();
+
+        for (ServerPlayer target : onlinePlayers) {
+            for (ServerPlayer viewer : onlinePlayers) {
+                if (viewer.getUUID().equals(target.getUUID())) continue;
+                // Remove target from viewer's client
+                viewer.connection.send(new ClientboundPlayerInfoRemovePacket(List.of(target.getUUID())));
+            }
+            // Keep damage resistance — no invisibility effect needed
+            target.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 60, 4, false, false));
+        }
+    }
+
+    private void liftPrepEffects(MinecraftServer server, GameSession session) {
+        List<UUID> playerUuids = session.getPlayers().stream().toList();
+        List<ServerPlayer> onlinePlayers = playerUuids.stream()
+                .map(uuid -> server.getPlayerList().getPlayer(uuid))
+                .filter(p -> p != null)
+                .toList();
+
+        for (ServerPlayer target : onlinePlayers) {
+            for (ServerPlayer viewer : onlinePlayers) {
+                if (viewer.getUUID().equals(target.getUUID())) continue;
+                // Re-add target to viewer's client
+                viewer.connection.send(ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(target)));
+                viewer.connection.send(new ClientboundAddEntityPacket(target));
+                // Sync entity data (skin, held item, etc.)
+                var entityData = target.getEntityData().getNonDefaultValues();
+                if (entityData != null && !entityData.isEmpty()) {
+                    viewer.connection.send(new ClientboundSetEntityDataPacket(target.getId(), entityData));
+                }
+            }
+            target.removeEffect(MobEffects.DAMAGE_RESISTANCE);
         }
     }
 
@@ -159,10 +211,60 @@ public class GameTickHandler {
         }
     }
 
-    private void shrinkBorder(GameSession session, int blocks) {
+    private void tickAntiSittingDuck(MinecraftServer server, GameSession session) {
+        Map<UUID, BlockPos> lastPos       = session.getLastKnownPositions();
+        Map<UUID, Integer>  noMoveTicks   = session.getNoMoveTicks();
+        Map<UUID, Integer>  glowTicks     = session.getGlowTicks();
+
+        for (UUID uuid : session.getPlayers()) {
+            if (session.isEliminated(uuid)) continue;
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player == null) continue;
+
+            BlockPos currentPos = player.blockPosition();
+            BlockPos last = lastPos.getOrDefault(uuid, currentPos);
+
+            // Tick down existing glow
+            if (glowTicks.containsKey(uuid)) {
+                int remaining = glowTicks.get(uuid) - 1;
+                if (remaining <= 0) {
+                    glowTicks.remove(uuid);
+                    player.removeEffect(MobEffects.GLOWING);
+                } else {
+                    glowTicks.put(uuid, remaining);
+                }
+                lastPos.put(uuid, currentPos);
+                noMoveTicks.put(uuid, 0);
+                continue;
+            }
+
+            if (currentPos.equals(last)) {
+                int ticks = noMoveTicks.getOrDefault(uuid, 0) + 1;
+                noMoveTicks.put(uuid, ticks);
+
+                if (ticks >= session.getNoMoveThreshold()) {
+                    // Reveal
+                    player.addEffect(new MobEffectInstance(MobEffects.GLOWING, session.getGlowDuration(), 0, false, false));
+                    glowTicks.put(uuid, session.getGlowDuration());
+                    noMoveTicks.put(uuid, 0);
+
+                    for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+                        p.sendSystemMessage(Component.literal("§6[NOTICE] §eA player has been revealed due to not moving."));
+                    }
+                }
+            } else {
+                noMoveTicks.put(uuid, 0);
+            }
+
+            lastPos.put(uuid, currentPos);
+        }
+    }
+
+    private void shrinkBorder(GameSession session, double targetSize, int durationSeconds) {
         WorldBorder border = session.getLevel().getWorldBorder();
-        double newSize = Math.max(0, border.getSize() - (blocks * 2.0));
-        border.setSize(newSize);
+        double currentSize = border.getSize();
+        double newSize = Math.max(10, currentSize - (targetSize * 2.0));
+        border.lerpSizeBetween(currentSize, newSize, (durationSeconds / 2) * 1000L);
     }
 
     private String formatTime(int totalSeconds) {

@@ -13,6 +13,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.border.WorldBorder;
 
 import java.util.Arrays;
 import java.util.UUID;
@@ -59,6 +60,27 @@ public class GameDebugCommand {
         int finalCount = count;
         source.sendSuccess(() -> net.minecraft.network.chat.Component.literal(
                 "Logged " + finalCount + " TACZ items to the server log."), false);
+        return 1;
+    }
+
+    public static int forceBorderShrink(CommandSourceStack source) {
+        GameSession session = GameManager.getSession();
+        if (session == null || !session.isActive()) {
+            source.sendFailure(Component.literal("No active game."));
+            return 0;
+        }
+        if (!isHost(source, session)) {
+            source.sendFailure(Component.literal("Only the host can use debug commands."));
+            return 0;
+        }
+
+        WorldBorder border = session.getLevel().getWorldBorder();
+        double currentSize = border.getSize();
+        double newSize = Math.max(10, currentSize - 60.0);
+        int interval = session.getEndgameBorderShrinkInterval();
+        border.lerpSizeBetween(currentSize, newSize, Math.max(1, interval / 20) * 1000L);
+
+        source.sendSuccess(() -> Component.literal("Border shrink forced: " + currentSize + " -> " + newSize), false);
         return 1;
     }
 

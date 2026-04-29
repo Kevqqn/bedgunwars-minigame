@@ -13,6 +13,15 @@ public class GunHelper {
         try {
             ItemStack stack = GunItemBuilder.create().setId(gunId).build();
             if (stack == null || stack.isEmpty()) return new ItemStack(Items.BOW);
+            // Initialize fire mode from the gun's default definition
+            if (stack.getItem() instanceof com.tacz.guns.api.item.IGun iGun) {
+                com.tacz.guns.api.TimelessAPI.getCommonGunIndex(gunId).ifPresent(index -> {
+                    var tag = stack.getOrCreateTagElement("GunState");
+                    if (!tag.contains("FireMode")) {
+                        tag.putString("FireMode", "AUTO");
+                    }
+                });
+            }
             return stack;
         } catch (Exception e) {
             return new ItemStack(Items.BOW);
@@ -37,6 +46,47 @@ public class GunHelper {
 
     public static String getAttachmentDisplayName(ResourceLocation attachmentId) {
         return formatPath(attachmentId.getPath());
+    }
+
+    public static String getGunCategory(ResourceLocation gunId) {
+        try {
+            var index = com.tacz.guns.api.TimelessAPI.getCommonGunIndex(gunId);
+            if (index.isPresent()) {
+                var gunIndex = index.get();
+                // Try to get GunTabType via getType() or getTabType()
+                try {
+                    var method = gunIndex.getClass().getMethod("getType");
+                    Object result = method.invoke(gunIndex);
+                    if (result != null) return formatTabType(result.toString());
+                } catch (NoSuchMethodException ignored) {}
+                try {
+                    var method = gunIndex.getClass().getMethod("getTabType");
+                    Object result = method.invoke(gunIndex);
+                    if (result != null) return formatTabType(result.toString());
+                } catch (NoSuchMethodException ignored) {}
+                // Check all methods returning GunTabType
+                for (var method : gunIndex.getClass().getMethods()) {
+                    if (method.getReturnType().getSimpleName().equals("GunTabType")) {
+                        Object result = method.invoke(gunIndex);
+                        if (result != null) return formatTabType(result.toString());
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return "Rifle";
+    }
+
+    private static String formatTabType(String raw) {
+        return switch (raw.toUpperCase()) {
+            case "PISTOL"  -> "Pistol";
+            case "SNIPER"  -> "Sniper";
+            case "RIFLE"   -> "Rifle";
+            case "SHOTGUN" -> "Shotgun";
+            case "SMG"     -> "SMG";
+            case "RPG"     -> "RPG";
+            case "MG"      -> "LMG";
+            default        -> "Rifle";
+        };
     }
 
 // Unused
@@ -72,3 +122,4 @@ public class GunHelper {
         return sb.toString().trim();
     }
 }
+
