@@ -63,24 +63,21 @@ public class GameDebugCommand {
         return 1;
     }
 
-    public static int forceBorderShrink(CommandSourceStack source) {
+    public static int forceBorderShrink(CommandSourceStack source, int seconds) {
         GameSession session = GameManager.getSession();
         if (session == null || !session.isActive()) {
             source.sendFailure(Component.literal("No active game."));
-            return 0;
-        }
-        if (!isHost(source, session)) {
-            source.sendFailure(Component.literal("Only the host can use debug commands."));
             return 0;
         }
 
         WorldBorder border = session.getLevel().getWorldBorder();
         double currentSize = border.getSize();
         double newSize = Math.max(10, currentSize - 60.0);
-        int interval = session.getEndgameBorderShrinkInterval();
-        border.lerpSizeBetween(currentSize, newSize, Math.max(1, interval / 20) * 1000L);
+        border.lerpSizeBetween(currentSize, newSize, seconds * 1000L);
 
-        source.sendSuccess(() -> Component.literal("Border shrink forced: " + currentSize + " -> " + newSize), false);
+        session.setEndgameBorderShrinkTicks(session.getEndgameBorderShrinkInterval());
+
+        source.sendSuccess(() -> Component.literal("Border shrunk over " + seconds + "s: " + (int)currentSize + " -> " + (int)newSize + ". Timer reset."), false);
         return 1;
     }
 

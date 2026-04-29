@@ -170,7 +170,10 @@ public class BedGunWars {
                                         )
                                 )
                                 .then(Commands.literal("forcebordershrink")
-                                        .executes(ctx -> GameDebugCommand.forceBorderShrink(ctx.getSource()))
+                                        .then(Commands.argument("seconds", IntegerArgumentType.integer(1))
+                                                .executes(ctx -> GameDebugCommand.forceBorderShrink(
+                                                        ctx.getSource(),
+                                                        IntegerArgumentType.getInteger(ctx, "seconds"))))
                                 )
                                 .then(Commands.literal("listtaczitems")
                                         .executes(ctx -> GameDebugCommand.listTaczItems(ctx.getSource())))

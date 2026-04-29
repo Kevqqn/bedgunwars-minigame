@@ -26,6 +26,17 @@ public class SoundHelper {
         ));
     }
 
+    public static void playEnderDragonSound(ServerPlayer player) {
+        player.connection.send(new net.minecraft.network.protocol.game.ClientboundSoundPacket(
+                net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.getHolder(
+                        net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.getResourceKey(
+                                net.minecraft.sounds.SoundEvents.ENDER_DRAGON_GROWL).orElseThrow()).orElseThrow(),
+                net.minecraft.sounds.SoundSource.HOSTILE,
+                player.getX(), player.getY(), player.getZ(),
+                3.0f, 1.0f, player.level().random.nextLong()
+        ));
+    }
+
     public static float noteToPitch(int note) {
         return (float) Math.pow(2.0, (note - 12) / 12.0);
     }

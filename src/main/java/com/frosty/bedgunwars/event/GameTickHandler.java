@@ -183,7 +183,7 @@ public class GameTickHandler {
         destroyAllBeds(session);
 
         for (ServerPlayer p : server.getPlayerList().getPlayers()) {
-            SoundHelper.playWitherDeath(p);
+            SoundHelper.playEnderDragonSound(p);
             p.connection.send(new ClientboundSetTitlesAnimationPacket(10, 70, 20));
             p.connection.send(new ClientboundSetTitleTextPacket(Component.literal("Endgame")));
             p.connection.send(new ClientboundSetSubtitleTextPacket(
