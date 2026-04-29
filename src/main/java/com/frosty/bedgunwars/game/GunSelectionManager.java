@@ -49,19 +49,13 @@ public class GunSelectionManager {
         return guns;
     }
 
-    public static List getAllAvailableThrowables() {
-        List list = new ArrayList<>();
-        for (var entry : ForgeRegistries.ITEMS.getEntries()) {
-            ResourceLocation id = entry.getKey().location();
-            if (!id.getNamespace().equals("tacz")) continue; // ✅ Only TaCZ items
-
-            String path = id.getPath();
-            if (path.contains("grenade") || path.contains("smoke") ||
-                    path.contains("flashbang") || path.contains("flash") ||
-                    path.contains("throwable") || path.contains("frag") ||
-                    path.contains("molotov") || path.contains("c4")) {
-                list.add(id);
-            }
+    public static List<ResourceLocation> getAllAvailableThrowables() {
+        List<ResourceLocation> list = new ArrayList<>();
+        try {
+            me.xjqsh.lrtactical.api.LrTacticalAPI.getThrowableIndexes().forEach(index ->
+                    list.add(index.getId()));
+        } catch (Exception e) {
+            // LesRaisins not installed
         }
         list.sort(Comparator.comparing(ResourceLocation::getPath));
         return list;

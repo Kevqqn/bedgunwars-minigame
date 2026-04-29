@@ -13,12 +13,13 @@ public class GunHelper {
         try {
             ItemStack stack = GunItemBuilder.create().setId(gunId).build();
             if (stack == null || stack.isEmpty()) return new ItemStack(Items.BOW);
-            // Initialize fire mode from the gun's default definition
+
             if (stack.getItem() instanceof com.tacz.guns.api.item.IGun iGun) {
                 com.tacz.guns.api.TimelessAPI.getCommonGunIndex(gunId).ifPresent(index -> {
-                    var tag = stack.getOrCreateTagElement("GunState");
-                    if (!tag.contains("FireMode")) {
-                        tag.putString("FireMode", "AUTO");
+                    java.util.List<com.tacz.guns.api.item.gun.FireMode> modes =
+                            index.getGunData().getFireModeSet();
+                    if (modes != null && !modes.isEmpty()) {
+                        iGun.setFireMode(stack, modes.get(0));
                     }
                 });
             }
@@ -121,5 +122,40 @@ public class GunHelper {
         }
         return sb.toString().trim();
     }
+    public static ItemStack buildThrowable(ResourceLocation throwableId) {
+        try {
+            var indexes = me.xjqsh.lrtactical.api.LrTacticalAPI.getThrowableIndexes();
+            for (var index : indexes) {
+                if (index.getId().equals(throwableId)) {
+                    ItemStack stack = index.createItemStack();
+                    if (stack != null && !stack.isEmpty()) return stack;
+                }
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return ItemStack.EMPTY;
+    }
+
+    @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
+    public static String getThrowableDisplayName(ResourceLocation id) {
+        try {
+            var indexes = me.xjqsh.lrtactical.api.LrTacticalAPI.getThrowableIndexes();
+            for (var index : indexes) {
+                if (index.getId().equals(id)) {
+                    String key = index.getDescriptionId();
+                    String translated = net.minecraft.network.chat.Component
+                            .translatable(key).getString();
+                    if (!translated.equals(key)) return translated;
+                    return formatPath(id.getPath());
+                }
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return formatPath(id.getPath());
+    }
 }
+
+
 

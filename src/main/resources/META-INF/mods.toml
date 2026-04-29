@@ -11,7 +11,14 @@ description='''${mod_description}'''
 
 [[dependencies.bedgunwars]]
 modId = "tacz"
-mandatory = false
+mandatory = true
 versionRange = "[1.1.4,)"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies.bedgunwars]]
+modId = "lrtactical"
+mandatory = false
+versionRange = "[0.3.0,)"
 ordering = "AFTER"
 side = "BOTH"

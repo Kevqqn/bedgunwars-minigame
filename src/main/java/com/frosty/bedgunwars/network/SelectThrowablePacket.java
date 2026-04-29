@@ -1,6 +1,7 @@
 package com.frosty.bedgunwars.network;
 
 import com.frosty.bedgunwars.game.*;
+import com.frosty.bedgunwars.game.GunHelper;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -14,7 +15,9 @@ import java.util.function.Supplier;
 public class SelectThrowablePacket {
     private final List<ResourceLocation> throwableIds;
 
-    public SelectThrowablePacket(List<ResourceLocation> ids) { this.throwableIds = ids; }
+    public SelectThrowablePacket(List<ResourceLocation> ids) {
+        this.throwableIds = ids;
+    }
 
     public static void encode(SelectThrowablePacket msg, FriendlyByteBuf buf) {
         buf.writeInt(msg.throwableIds.size());
@@ -45,33 +48,25 @@ public class SelectThrowablePacket {
                 if (validated.size() >= gsm.getMaxThrowablePicks()) break;
             }
             gsm.setThrowableSelections(player.getUUID(), validated);
-            removeFromInventory(player, all);
+            removeThrowablesFromInventory(player);
             for (ResourceLocation id : validated) {
-                var item = ForgeRegistries.ITEMS.getValue(id);
-                if (item != null) player.getInventory().add(new ItemStack(item));
+                ItemStack stack = GunHelper.buildThrowable(id);
+                if (!stack.isEmpty()) player.getInventory().add(stack);
             }
             player.containerMenu.broadcastChanges();
         });
         ctx.get().setPacketHandled(true);
     }
 
-    private static void removeFromInventory(ServerPlayer player, List<ResourceLocation> catalogue) {
-        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            ItemStack stack = player.getInventory().getItem(i);
-            if (stack.isEmpty()) continue;
-            ResourceLocation id = ForgeRegistries.ITEMS.getKey(stack.getItem());
-            if (id != null && catalogue.contains(id)) player.getInventory().setItem(i, ItemStack.EMPTY);
-        }
-    }
     private static void removeThrowablesFromInventory(ServerPlayer player) {
-        List<ResourceLocation> allThrowables = GunSelectionManager.getAllAvailableThrowables();
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack stack = player.getInventory().getItem(i);
             if (stack.isEmpty()) continue;
-            ResourceLocation itemId = ForgeRegistries.ITEMS.getKey(stack.getItem());
-            if (itemId != null && allThrowables.contains(itemId)) {
-                player.getInventory().setItem(i, ItemStack.EMPTY);
-            }
+            try {
+                if (me.xjqsh.lrtactical.api.LrTacticalAPI.getThrowableIndex(stack).isPresent()) {
+                    player.getInventory().setItem(i, ItemStack.EMPTY);
+                }
+            } catch (Exception ignored) {}
         }
     }
 }

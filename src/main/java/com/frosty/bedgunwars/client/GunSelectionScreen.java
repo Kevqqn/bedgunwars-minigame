@@ -157,9 +157,11 @@ public class GunSelectionScreen extends Screen {
     }
 
     private String displayName(ResourceLocation id) {
-        return activeTab == 1
-                ? GunHelper.getAttachmentDisplayName(id)
-                : GunHelper.getGunDisplayName(id);
+        return switch (activeTab) {
+            case 1  -> GunHelper.getAttachmentDisplayName(id);
+            case 2  -> GunHelper.getThrowableDisplayName(id);
+            default -> GunHelper.getGunDisplayName(id);
+        };
     }
 
     private String resolveCategory(ResourceLocation id) {
@@ -212,6 +214,16 @@ public class GunSelectionScreen extends Screen {
         }
     }
 
+    private void renderIcon(GuiGraphics g, ItemStack stack, int x, int y) {
+        if (stack.isEmpty()) return;
+        g.pose().pushPose();
+        float scale = ICON_SIZE / 16.0f;
+        g.pose().translate(x, y, 0);
+        g.pose().scale(scale, scale, 1.0f);
+        g.renderItem(stack, 0, 0);
+        g.pose().popPose();
+    }
+
     private void renderItemList(GuiGraphics g, int mx, int my) {
         List<ResourceLocation> filtered = filteredCatalogue();
         List<ResourceLocation> selection = activeSelection();
@@ -244,15 +256,36 @@ public class GunSelectionScreen extends Screen {
             if (isSelected) g.renderOutline(LIST_X, rowY, LIST_W, ROW_H, 0xFF33BB33);
 
             // Icon (bigger: ICON_SIZE x ICON_SIZE)
-            ItemStack stack = activeTab == 0 ? buildGunStack(id) : buildAttachmentStack(id);
-            g.pose().pushPose();
-            float scale = ICON_SIZE / 16.0f;
-            int iconX = LIST_X + 3;
-            int iconY = rowY + (ROW_H - ICON_SIZE) / 2;
-            g.pose().translate(iconX, iconY, 0);
-            g.pose().scale(scale, scale, 1);
-            g.renderItem(stack, 0, 0);
-            g.pose().popPose();
+            ItemStack stack;
+            if (activeTab == 0) {
+                stack = buildGunStack(id);
+            } else if (activeTab == 1) {
+                stack = buildAttachmentStack(id);
+            } else {
+                stack = buildThrowableStack(id);
+            }
+
+            // Render icon
+            if (activeTab == 2 && !stack.isEmpty()) {
+                // Try LesRaisins slot texture first
+                try {
+                    var display = me.xjqsh.lrtactical.api.LrTacticalAPI.getThrowableDisplay(stack);
+                    if (display.isPresent() && display.get().getSlotTexture() != null) {
+                        net.minecraft.resources.ResourceLocation slotTex = display.get().getSlotTexture();
+                        g.pose().pushPose();
+                        g.pose().translate(LIST_X + 3, rowY + (ROW_H - ICON_SIZE) / 2, 0);
+                        g.pose().scale(ICON_SIZE / 16.0f, ICON_SIZE / 16.0f, 1.0f);
+                        g.blit(slotTex, 0, 0, 0, 0, 16, 16, 16, 16);
+                        g.pose().popPose();
+                    } else {
+                        renderIcon(g, stack, LIST_X + 3, rowY + (ROW_H - ICON_SIZE) / 2);
+                    }
+                } catch (Exception e) {
+                    renderIcon(g, stack, LIST_X + 3, rowY + (ROW_H - ICON_SIZE) / 2);
+                }
+            } else {
+                renderIcon(g, stack, LIST_X + 3, rowY + (ROW_H - ICON_SIZE) / 2);
+            }
 
             // Name
             int textX = LIST_X + ICON_SIZE + 8;
@@ -352,7 +385,7 @@ public class GunSelectionScreen extends Screen {
             g.renderOutline(panelX, slotY, PANEL_W, 18, i < selectedThrowables.size() ? 0xFF442222 : 0xFF222222);
             if (i < selectedThrowables.size()) {
                 g.renderItem(buildThrowableStack(selectedThrowables.get(i)), panelX + 1, slotY + 1);
-                g.drawString(font, "§f" + shorten(GunHelper.getGunDisplayName(selectedThrowables.get(i)), 13), panelX + 20, slotY + 5, 0xFFFFFF);
+                g.drawString(font, "§f" + shorten(GunHelper.getThrowableDisplayName(selectedThrowables.get(i)), 13), panelX + 20, slotY + 5, 0xFFFFFF);
             } else {
                 g.drawString(font, "§8- empty -", panelX + 4, slotY + 5, 0x333333);
             }
@@ -478,8 +511,8 @@ public class GunSelectionScreen extends Screen {
 
     private ItemStack buildThrowableStack(ResourceLocation id) {
         try {
-            var item = net.minecraftforge.registries.ForgeRegistries.ITEMS.getValue(id);
-            if (item != null && item != Items.AIR) return new ItemStack(item);
+            ItemStack s = GunHelper.buildThrowable(id);
+            if (!s.isEmpty()) return s;
         } catch (Exception ignored) {}
         return ItemStack.EMPTY;
     }
