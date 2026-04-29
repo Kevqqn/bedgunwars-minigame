@@ -127,10 +127,25 @@ public class GameScoreboard {
         lines.add("§7§m-----------");
 
         UUID uuid = player.getUUID();
-        String bedStatus = session.hasPlacedBed(uuid)
-                ? (session.isBedBroken(uuid) ? "§cDestroyed" : "§aSafe")
-                : "§7Not placed";
+        String bedStatus;
+        if (session.getMode() == GameModeType.TEAMS) {
+            String team = session.getPlayerTeam(uuid);
+            UUID bedOwner = team != null ? session.getTeamBedOwner(team) : null;
+            if (bedOwner == null || !session.hasPlacedBed(bedOwner)) {
+                bedStatus = "§7Not placed";
+            } else if (session.isBedBroken(bedOwner)) {
+                bedStatus = "§cDestroyed";
+            } else {
+                bedStatus = "§aSafe";
+            }
+        } else {
+            bedStatus = session.hasPlacedBed(uuid)
+                    ? (session.isBedBroken(uuid) ? "§cDestroyed" : "§aSafe")
+                    : "§7Not placed";
+        }
         lines.add("§eBed: " + bedStatus);
+
+
         lines.add("§7§m----------");
 
         return lines;

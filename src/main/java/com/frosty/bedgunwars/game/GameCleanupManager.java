@@ -31,6 +31,9 @@ public class GameCleanupManager {
             session.restorePlayerState(player);
         }
 
+        if (session.getMode() == GameModeType.TEAMS) {
+            TeamManager.removeScoreboardTeams(server, session);
+        }
         session.end();
         GameManager.end();
         broadcast(server, endMessage);

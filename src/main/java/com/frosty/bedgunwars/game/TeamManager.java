@@ -1,6 +1,8 @@
 package com.frosty.bedgunwars.game;
 
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import java.util.*;
 
 public class TeamManager {
@@ -65,6 +67,61 @@ public class TeamManager {
             case "Team 5" -> "§d";
             case "Team 6" -> "§6";
             default       -> "§f";
+        };
+    }
+    public static void applyScoreboardTeams(MinecraftServer server, GameSession session) {
+        net.minecraft.world.scores.Scoreboard scoreboard = server.getScoreboard();
+
+        // Clean up old teams first
+        for (int i = 1; i <= session.getTeamCount(); i++) {
+            String teamName = "bgw_team_" + i;
+            if (scoreboard.getPlayerTeam(teamName) != null) {
+                scoreboard.removePlayerTeam(scoreboard.getPlayerTeam(teamName));
+            }
+        }
+
+        // Create teams and assign players
+        for (UUID uuid : session.getPlayers()) {
+            String team = session.getPlayerTeam(uuid);
+            if (team == null) continue;
+
+            int teamNum = Integer.parseInt(team.replace("Team ", ""));
+            String sbTeamName = "bgw_team_" + teamNum;
+
+            net.minecraft.world.scores.PlayerTeam sbTeam = scoreboard.getPlayerTeam(sbTeamName);
+            if (sbTeam == null) sbTeam = scoreboard.addPlayerTeam(sbTeamName);
+
+            // Set team color
+            net.minecraft.ChatFormatting color = getTeamFormatting(team);
+            sbTeam.setColor(color);
+            sbTeam.setPlayerPrefix(Component.literal(getTeamColor(team) + "[" + team + "] §r"));
+
+            // Add player to team
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player != null) {
+                scoreboard.addPlayerToTeam(player.getScoreboardName(), sbTeam);
+            }
+        }
+    }
+
+    public static void removeScoreboardTeams(MinecraftServer server, GameSession session) {
+        net.minecraft.world.scores.Scoreboard scoreboard = server.getScoreboard();
+        for (int i = 1; i <= session.getTeamCount(); i++) {
+            String teamName = "bgw_team_" + i;
+            net.minecraft.world.scores.PlayerTeam sbTeam = scoreboard.getPlayerTeam(teamName);
+            if (sbTeam != null) scoreboard.removePlayerTeam(sbTeam);
+        }
+    }
+
+    private static net.minecraft.ChatFormatting getTeamFormatting(String team) {
+        return switch (team) {
+            case "Team 1" -> net.minecraft.ChatFormatting.RED;
+            case "Team 2" -> net.minecraft.ChatFormatting.BLUE;
+            case "Team 3" -> net.minecraft.ChatFormatting.GREEN;
+            case "Team 4" -> net.minecraft.ChatFormatting.YELLOW;
+            case "Team 5" -> net.minecraft.ChatFormatting.LIGHT_PURPLE;
+            case "Team 6" -> net.minecraft.ChatFormatting.GOLD;
+            default       -> net.minecraft.ChatFormatting.WHITE;
         };
     }
 }

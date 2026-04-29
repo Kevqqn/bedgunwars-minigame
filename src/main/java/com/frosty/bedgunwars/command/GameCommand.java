@@ -19,8 +19,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
 import com.frosty.bedgunwars.game.TeamManager;
-import com.mojang.brigadier.arguments.BoolArgumentType;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
+import net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -205,10 +207,41 @@ public class GameCommand {
         }
 
         assignPlayers(session, players, session.getMode());
+        if (session.getMode() == GameModeType.TEAMS) {
+            TeamManager.applyScoreboardTeams(player.serverLevel().getServer(), session);
+        }
         teleportPlayersToBeacon(players, session.getLevel(), session.getBeaconPos());
         giveStarterItems(session, players);
 
         session.setPhase(GamePhase.PREPARATION);
+        for (ServerPlayer p : players) {
+            String team = session.getPlayerTeam(p.getUUID());
+            if (team != null && session.getMode() == GameModeType.TEAMS) {
+                String color = TeamManager.getTeamColor(team);
+
+                // Build teammate list
+                String teammates = session.getPlayers().stream()
+                        .filter(u -> team.equals(session.getPlayerTeam(u)) && !u.equals(p.getUUID()))
+                        .map(u -> {
+                            ServerPlayer tp = p.getServer().getPlayerList().getPlayer(u);
+                            return tp != null ? tp.getName().getString() : "?";
+                        })
+                        .reduce((a, b) -> a + ", " + b)
+                        .orElse("none");
+
+                p.connection.send(new ClientboundSetTitlesAnimationPacket(10, 60, 20));
+                p.connection.send(new ClientboundSetTitleTextPacket(
+                        Component.literal(color + "▶ " + team)));
+                p.connection.send(new ClientboundSetSubtitleTextPacket(
+                        Component.literal("§7Teammates: §f" + teammates)));
+            } else {
+                p.connection.send(new ClientboundSetTitlesAnimationPacket(10, 60, 20));
+                p.connection.send(new ClientboundSetTitleTextPacket(
+                        Component.literal("§ePreparation Phase")));
+                p.connection.send(new ClientboundSetSubtitleTextPacket(
+                        Component.literal("§7Place your bed!")));
+            }
+        }
         source.sendSuccess(() -> Component.literal("Preparation phase started for " + seconds + " seconds."), true);
         broadcast(player.serverLevel().getServer(), "Preparation phase started! Place your bed now.");
         return 1;
@@ -314,6 +347,18 @@ public class GameCommand {
         return 1;
     }
 
+    private static int getTeamRGB(String team) {
+        return switch (team) {
+            case "Team 1" -> 0xFF5555; // red
+            case "Team 2" -> 0x5555FF; // blue
+            case "Team 3" -> 0x55FF55; // lime
+            case "Team 4" -> 0xFFFF55; // yellow
+            case "Team 5" -> 0xFF55FF; // purple
+            case "Team 6" -> 0xFFAA00; // orange
+            default       -> 0xFFFFFF;
+        };
+    }
+
     private static void teleportPlayersToBeacon(List<ServerPlayer> players, ServerLevel level, BlockPos beacon) {
         int index = 0;
         for (ServerPlayer player : players) {
@@ -348,11 +393,30 @@ public class GameCommand {
     private static void giveStarterItems(GameSession session, List<ServerPlayer> players) {
         for (ServerPlayer player : players) {
             player.getInventory().clearContent();
+
+            boolean isTeams = session.getMode() == GameModeType.TEAMS;
+            String team = session.getPlayerTeam(player.getUUID());
+
+            // Helmet, leggings, boots — always netherite
             player.getInventory().armor.set(3, new ItemStack(Items.NETHERITE_HELMET));
-            player.getInventory().armor.set(2, new ItemStack(Items.NETHERITE_CHESTPLATE));
             player.getInventory().armor.set(1, new ItemStack(Items.NETHERITE_LEGGINGS));
             player.getInventory().armor.set(0, new ItemStack(Items.NETHERITE_BOOTS));
 
+            // Chestplate — dyed leather in teams, netherite in solo
+            if (isTeams && team != null) {
+                ItemStack chest = new ItemStack(Items.LEATHER_CHESTPLATE);
+                // Apply Protection IV + Unbreaking III to compensate for leather
+                chest.enchant(Enchantments.ALL_DAMAGE_PROTECTION, 4);
+                chest.enchant(Enchantments.UNBREAKING, 3);
+                // Dye it the team color
+                int rgb = getTeamRGB(team);
+                chest.getOrCreateTagElement("display").putInt("color", rgb);
+                player.getInventory().armor.set(2, chest);
+            } else {
+                player.getInventory().armor.set(2, new ItemStack(Items.NETHERITE_CHESTPLATE));
+            }
+
+            // Bed — only for designated bed owner in teams
             Item bedItem = getBedItemForPlayer(session, player.getUUID());
             if (bedItem != null) {
                 player.getInventory().setItem(0, new ItemStack(bedItem, 1));
