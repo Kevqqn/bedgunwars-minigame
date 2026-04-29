@@ -50,6 +50,7 @@ public class GameCommand {
         session.setPhase(GamePhase.STARTING);
         session.setTeamCount(teamCount);
         GameManager.start(session);
+        session.addJoinedPlayer(player.getUUID());
 
         source.sendSuccess(() -> Component.literal("Game created in " + mode.name() + " mode."), true);
         source.sendSuccess(() -> Component.literal("You are the host. Other players can now use /game join."), false);
@@ -351,15 +352,18 @@ public class GameCommand {
             player.getInventory().armor.set(2, new ItemStack(Items.NETHERITE_CHESTPLATE));
             player.getInventory().armor.set(1, new ItemStack(Items.NETHERITE_LEGGINGS));
             player.getInventory().armor.set(0, new ItemStack(Items.NETHERITE_BOOTS));
+
             Item bedItem = getBedItemForPlayer(session, player.getUUID());
             if (bedItem != null) {
                 player.getInventory().setItem(0, new ItemStack(bedItem, 1));
             }
+
             player.getInventory().setItem(1, new ItemStack(Items.GOLDEN_APPLE, 32));
             player.getInventory().setItem(2, new ItemStack(Items.NETHERITE_PICKAXE, 1));
             player.getInventory().setItem(3, new ItemStack(Items.STONE, 64));
 
-            ItemStack ammoBox = new ItemStack(BuiltInRegistries.ITEM.get(ResourceLocation.fromNamespaceAndPath("tacz", "ammo_box")), 1);
+            ItemStack ammoBox = new ItemStack(BuiltInRegistries.ITEM.get(
+                    ResourceLocation.fromNamespaceAndPath("tacz", "ammo_box")), 1);
             if (!ammoBox.isEmpty()) {
                 ammoBox.getOrCreateTag().putBoolean("AllTypeCreative", true);
                 player.getInventory().add(ammoBox);
