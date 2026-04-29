@@ -11,7 +11,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.BedItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.BedBlock;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraftforge.event.level.BlockEvent;
@@ -19,7 +18,6 @@ import com.frosty.bedgunwars.game.SoundHelper;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LightningBolt;
-import net.minecraft.core.BlockPos;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 import java.util.UUID;
@@ -38,15 +36,25 @@ public class BedEventHandler {
         BlockState placed = event.getPlacedBlock();
 
         // Guard: ignore air blocks and anything that isn't a BedBlock
-        // This prevents empty-hand right-clicks from triggering this handler
+        // revents empty hand right-clicks from triggering this handler
         if (placed == null || placed.isAir() || !(placed.getBlock() instanceof BedBlock)) return;
 
-        // Also verify the player is actually holding a bed item
+        // verify the player is actually holding a bed item
         ItemStack heldItem = player.getMainHandItem();
         if (!(heldItem.getItem() instanceof BedItem)) return;
 
         UUID uuid = player.getUUID();
         if (!session.getPlayers().contains(uuid)) return;
+
+        if (session.getMode() == GameModeType.TEAMS) {
+            String team = session.getPlayerTeam(uuid);
+            UUID designatedOwner = session.getTeamBedOwner(team);
+            if (!uuid.equals(designatedOwner)) {
+                event.setCanceled(true);
+                player.sendSystemMessage(Component.literal("§cOnly the designated bed owner on your team can place the bed."));
+                return;
+            }
+        }
 
         if (session.hasPlacedBed(uuid)) {
             event.setCanceled(true);

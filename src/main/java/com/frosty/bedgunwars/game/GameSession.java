@@ -153,6 +153,20 @@ public class GameSession {
     public void setPlayerTeam(UUID uuid, String teamName) { playerTeams.put(uuid, teamName); }
     public String getPlayerTeam(UUID uuid) { return playerTeams.get(uuid); }
 
+    public void setTeamBedOwner(String team, UUID uuid) { teamBedOwners.put(team, uuid); }
+    public UUID getTeamBedOwner(String team) { return teamBedOwners.get(team); }
+    public Map<String, UUID> getTeamBedOwners() { return teamBedOwners; }
+
+    public boolean isFriendlyFire() { return friendlyFire; }
+    public void setFriendlyFire(boolean friendlyFire) { this.friendlyFire = friendlyFire; }
+
+    public int getTeamCount() { return teamCount; }
+    public void setTeamCount(int teamCount) { this.teamCount = teamCount; }
+
+    private final Map<String, UUID> teamBedOwners = new HashMap<>();
+    private boolean friendlyFire = false;
+    private int teamCount = 2;
+
     // --- Beds ---
     public boolean hasPlacedBed(UUID uuid) { return playerBeds.containsKey(uuid); }
     public BlockPos getPlayerBed(UUID uuid) { return playerBeds.get(uuid); }
@@ -258,6 +272,7 @@ public class GameSession {
         eliminatedPlayers.clear();
         pendingRespawnPlayers.clear();
         gunSelectionManager.clear();
+        teamBedOwners.clear();
         winnerName = null;
         winnerDelayTicks = 0;
         matchStartPlayerCount = 0;

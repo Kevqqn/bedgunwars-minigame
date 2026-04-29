@@ -10,6 +10,7 @@ import com.frosty.bedgunwars.game.GameManager;
 import com.frosty.bedgunwars.game.GameModeType;
 import com.frosty.bedgunwars.game.GamePhase;
 import com.frosty.bedgunwars.game.GameSession;
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
@@ -89,9 +90,12 @@ public class BedGunWars {
                         .then(Commands.literal("start")
                                 .requires(source -> source.hasPermission(2))
                                 .then(Commands.literal("solo")
-                                        .executes(ctx -> GameCommand.startGame(ctx.getSource(), GameModeType.SOLO)))
+                                        .executes(ctx -> GameCommand.startGame(ctx.getSource(), GameModeType.SOLO, 1)))
                                 .then(Commands.literal("teams")
-                                        .executes(ctx -> GameCommand.startGame(ctx.getSource(), GameModeType.TEAMS)))
+                                        .then(Commands.argument("count", IntegerArgumentType.integer(2, 6))
+                                                .executes(ctx -> GameCommand.startGame(ctx.getSource(), GameModeType.TEAMS,
+                                                        IntegerArgumentType.getInteger(ctx, "count"))))
+                                )
                         )
                         .then(Commands.literal("join")
                                 .executes(ctx -> GameCommand.joinGame(ctx.getSource()))
@@ -119,6 +123,13 @@ public class BedGunWars {
                                         .executes(ctx -> GameCommand.setMatchTime(
                                                 ctx.getSource(),
                                                 IntegerArgumentType.getInteger(ctx, "seconds"))))
+                        )
+                        .then(Commands.literal("teams")
+                                .then(Commands.literal("setfriendlyfire")
+                                        .requires(source -> source.hasPermission(2))
+                                        .then(Commands.argument("enabled", BoolArgumentType.bool())
+                                                .executes(ctx -> GameCommand.setFriendlyFire(ctx.getSource(),
+                                                        BoolArgumentType.getBool(ctx, "enabled")))))
                         )
                         .then(Commands.literal("stop")
                                 .requires(source -> source.hasPermission(2))

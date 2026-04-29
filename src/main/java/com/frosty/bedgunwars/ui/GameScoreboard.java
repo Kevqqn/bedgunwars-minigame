@@ -11,6 +11,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.Scoreboard;
 import net.minecraft.world.scores.criteria.ObjectiveCriteria;
+import com.frosty.bedgunwars.game.TeamManager;
+import com.frosty.bedgunwars.game.GameModeType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -78,17 +80,39 @@ public class GameScoreboard {
         lines.add("§7§m----------");
         lines.add("§eAlive: §f" + alive + "§7/§f" + total);
 
-        if (session.getMode().name().equals("TEAMS")) {
-            long redAlive = session.getPlayers().stream()
-                    .filter(u -> !session.isEliminated(u))
-                    .filter(u -> "RED".equals(session.getPlayerTeam(u)))
-                    .count();
-            long blueAlive = session.getPlayers().stream()
-                    .filter(u -> !session.isEliminated(u))
-                    .filter(u -> "BLUE".equals(session.getPlayerTeam(u)))
-                    .count();
-            lines.add("§cRed: §f" + redAlive);
-            lines.add("§9Blue: §f" + blueAlive);
+        if (session.getMode() == GameModeType.TEAMS) {
+            for (String team : TeamManager.getAliveTeams(session)) {
+                String color = TeamManager.getTeamColor(team);
+                UUID bedOwner = session.getTeamBedOwner(team);
+                String bedStatus = bedOwner == null || session.isBedBroken(bedOwner) ? "§c✗" : "§a✓";
+                long count = session.getPlayers().stream()
+                        .filter(u -> !session.isEliminated(u))
+                        .filter(u -> team.equals(session.getPlayerTeam(u)))
+                        .count();
+                lines.add(color + team + " §f" + count + " " + bedStatus);
+            }
+        }
+
+        lines.add("§7§m----------");
+        lines.add("§eKills");
+
+        // Sort players: alive first, then by kill count descending
+        List<UUID> sorted = session.getPlayers().stream()
+                .sorted((a, b) -> {
+                    boolean aAlive = !session.isEliminated(a);
+                    boolean bAlive = !session.isEliminated(b);
+                    if (aAlive != bAlive) return aAlive ? -1 : 1;
+                    return Integer.compare(session.getKills(b), session.getKills(a));
+                })
+                .toList();
+
+        for (UUID uuid : sorted) {
+            ServerPlayer p = session.getLevel().getServer().getPlayerList().getPlayer(uuid);
+            String name = p != null ? p.getName().getString() : uuid.toString().substring(0, 8);
+            String status = session.isEliminated(uuid) ? "§8" : "§f";
+            int kills = session.getKills(uuid);
+            String killStr = kills > 0 ? " §e" + kills + "☠" : " §80";
+            lines.add(status + name + killStr);
         }
 
         lines.add("§7§m-----------");
@@ -99,7 +123,7 @@ public class GameScoreboard {
                 : "§7Not placed";
         lines.add("§eBed: " + bedStatus);
         lines.add("§7§m----------");
-        lines.add("§eKills: §f" + session.getKills(uuid));
+
         return lines;
     }
 

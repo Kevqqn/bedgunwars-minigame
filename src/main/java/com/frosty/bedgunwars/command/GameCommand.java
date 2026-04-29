@@ -17,6 +17,9 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
+import com.frosty.bedgunwars.game.TeamManager;
+import com.mojang.brigadier.arguments.BoolArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -25,7 +28,7 @@ import java.util.UUID;
 
 public class GameCommand {
 
-    public static int startGame(CommandSourceStack source, GameModeType mode) {
+    public static int startGame(CommandSourceStack source, GameModeType mode, int teamCount) {
         if (GameManager.hasGame()) {
             source.sendFailure(Component.literal("Game already running"));
             return 0;
@@ -44,6 +47,7 @@ public class GameCommand {
 
         GameSession session = new GameSession(level, beacon, mode, player.getUUID());
         session.setPhase(GamePhase.STARTING);
+        session.setTeamCount(teamCount);
         GameManager.start(session);
 
         source.sendSuccess(() -> Component.literal("Game created in " + mode.name() + " mode."), true);
@@ -287,12 +291,25 @@ public class GameCommand {
             }
             return;
         }
-        boolean toggle = false;
-        for (ServerPlayer player : players) {
-            session.addPlayer(player.getUUID());
-            session.setPlayerTeam(player.getUUID(), toggle ? "RED" : "BLUE");
-            toggle = !toggle;
+        TeamManager.assignTeams(session, players, session.getTeamCount());
+    }
+
+    public static int setFriendlyFire(CommandSourceStack source, boolean enabled) {
+        if (!GameManager.hasGame()) {
+            source.sendFailure(Component.literal("No active game."));
+            return 0;
         }
+        if (!isHost(source)) {
+            source.sendFailure(Component.literal("Only the host can change friendly fire."));
+            return 0;
+        }
+        GameSession session = GameManager.getSession();
+        session.setFriendlyFire(enabled);
+        String state = enabled ? "§aenabled" : "§cdisabled";
+        source.getServer().getPlayerList().getPlayers().forEach(p ->
+                p.sendSystemMessage(Component.literal("§6[NOTICE] §eFriendly fire has been " + state + "§e."))
+        );
+        return 1;
     }
 
     private static void teleportPlayersToBeacon(List<ServerPlayer> players, ServerLevel level, BlockPos beacon) {

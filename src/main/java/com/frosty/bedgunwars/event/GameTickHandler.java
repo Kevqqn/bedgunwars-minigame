@@ -264,7 +264,7 @@ public class GameTickHandler {
         WorldBorder border = session.getLevel().getWorldBorder();
         double currentSize = border.getSize();
         double newSize = Math.max(10, currentSize - (targetSize * 2.0));
-        border.lerpSizeBetween(currentSize, newSize, (durationSeconds / 2) * 1000L);
+        border.lerpSizeBetween(currentSize, newSize, 8 * 1000L);
     }
 
     private String formatTime(int totalSeconds) {
