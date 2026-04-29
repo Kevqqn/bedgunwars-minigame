@@ -78,6 +78,15 @@ public class GameScoreboard {
         }
 
         lines.add("§7§m----------");
+
+        String playerTeam = session.getPlayerTeam(player.getUUID());
+        if (playerTeam != null) {
+            String color = session.getMode() == GameModeType.TEAMS
+                    ? TeamManager.getTeamColor(playerTeam)
+                    : "§e";
+            lines.add(color + "▶ " + playerTeam);
+        }
+
         lines.add("§eAlive: §f" + alive + "§7/§f" + total);
 
         if (session.getMode() == GameModeType.TEAMS) {

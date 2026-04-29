@@ -14,6 +14,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
@@ -204,7 +205,7 @@ public class GameCommand {
 
         assignPlayers(session, players, session.getMode());
         teleportPlayersToBeacon(players, session.getLevel(), session.getBeaconPos());
-        giveStarterItems(players);
+        giveStarterItems(session, players);
 
         session.setPhase(GamePhase.PREPARATION);
         source.sendSuccess(() -> Component.literal("Preparation phase started for " + seconds + " seconds."), true);
@@ -323,14 +324,37 @@ public class GameCommand {
         }
     }
 
-    private static void giveStarterItems(List<ServerPlayer> players) {
+    private static Item getBedItemForPlayer(GameSession session, UUID uuid) {
+        if (session.getMode() == GameModeType.SOLO) return Items.RED_BED;
+
+        String team = session.getPlayerTeam(uuid);
+        if (team == null) return null;
+
+        UUID bedOwner = session.getTeamBedOwner(team);
+        if (!uuid.equals(bedOwner)) return null;
+
+        return switch (team) {
+            case "Team 1" -> Items.RED_BED;
+            case "Team 2" -> Items.BLUE_BED;
+            case "Team 3" -> Items.LIME_BED;
+            case "Team 4" -> Items.YELLOW_BED;
+            case "Team 5" -> Items.PURPLE_BED;
+            case "Team 6" -> Items.ORANGE_BED;
+            default       -> Items.WHITE_BED;
+        };
+    }
+
+    private static void giveStarterItems(GameSession session, List<ServerPlayer> players) {
         for (ServerPlayer player : players) {
             player.getInventory().clearContent();
             player.getInventory().armor.set(3, new ItemStack(Items.NETHERITE_HELMET));
             player.getInventory().armor.set(2, new ItemStack(Items.NETHERITE_CHESTPLATE));
             player.getInventory().armor.set(1, new ItemStack(Items.NETHERITE_LEGGINGS));
             player.getInventory().armor.set(0, new ItemStack(Items.NETHERITE_BOOTS));
-            player.getInventory().setItem(0, new ItemStack(Items.RED_BED, 1));
+            Item bedItem = getBedItemForPlayer(session, player.getUUID());
+            if (bedItem != null) {
+                player.getInventory().setItem(0, new ItemStack(bedItem, 1));
+            }
             player.getInventory().setItem(1, new ItemStack(Items.GOLDEN_APPLE, 32));
             player.getInventory().setItem(2, new ItemStack(Items.NETHERITE_PICKAXE, 1));
             player.getInventory().setItem(3, new ItemStack(Items.STONE, 64));

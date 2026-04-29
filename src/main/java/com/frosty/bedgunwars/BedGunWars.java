@@ -124,7 +124,7 @@ public class BedGunWars {
                                                 ctx.getSource(),
                                                 IntegerArgumentType.getInteger(ctx, "seconds"))))
                         )
-                        .then(Commands.literal("teams")
+                        .then(Commands.literal("teamoptions")
                                 .then(Commands.literal("setfriendlyfire")
                                         .requires(source -> source.hasPermission(2))
                                         .then(Commands.argument("enabled", BoolArgumentType.bool())
