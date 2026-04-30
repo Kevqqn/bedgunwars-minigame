@@ -10,7 +10,8 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.GameRules;
 import com.frosty.bedgunwars.ui.GameScoreboard;
-
+import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.server.ServerScoreboard;
 import java.util.UUID;
 
 public class GameCleanupManager {
@@ -33,6 +34,15 @@ public class GameCleanupManager {
 
         if (session.getMode() == GameModeType.TEAMS) {
             TeamManager.removeScoreboardTeams(server, session);
+        }
+
+// Remove nametag teams
+        ServerScoreboard scoreboard = server.getScoreboard();
+        PlayerTeam solo = scoreboard.getPlayerTeam("bgw_players");
+        if (solo != null) scoreboard.removePlayerTeam(solo);
+        for (int i = 0; i < 10; i++) {
+            PlayerTeam t = scoreboard.getPlayerTeam("bgw_team_" + i);
+            if (t != null) scoreboard.removePlayerTeam(t);
         }
         session.end();
         GameManager.end();

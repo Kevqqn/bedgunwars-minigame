@@ -42,6 +42,7 @@ public class GameTickHandler {
 
         if (phase == GamePhase.PREPARATION) {
             applyPrepEffects(event.getServer(), session);
+            session.hideAllNametags(event.getServer());
             int ticksLeft = session.getPrepTimeTicks();
             int initialTicks = session.getInitialPrepTicks();
             int secondsLeft = ticksLeft / 20;
@@ -125,6 +126,7 @@ public class GameTickHandler {
 
         else if (phase == GamePhase.WINNER_ANNOUNCED) {
             GameScoreboard.update(session);
+            session.removeNametagTeams(event.getServer());
             session.decreaseWinnerDelay();
             if (session.getWinnerDelayTicks() <= 0) {
                 GameCleanupManager.restoreAndEnd(

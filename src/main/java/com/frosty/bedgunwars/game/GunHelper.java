@@ -6,6 +6,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraftforge.registries.ForgeRegistries;
+import java.util.Comparator;
+import java.util.List;
+import java.util.ArrayList;
 
 public class GunHelper {
 
@@ -110,6 +113,40 @@ public class GunHelper {
         return formatPath(id.getPath());
     }
 
+    public static List<ResourceLocation> getCompatibleAttachments(List<ResourceLocation> selectedGunIds) {
+        List<ResourceLocation> compatible = new ArrayList<>();
+        try {
+            // Build gun stacks for each selected gun
+            List<ItemStack> gunStacks = new ArrayList<>();
+            for (ResourceLocation gunId : selectedGunIds) {
+                ItemStack stack = buildGun(gunId);
+                if (!stack.isEmpty()) gunStacks.add(stack);
+            }
+            if (gunStacks.isEmpty()) return GunSelectionManager.getAllAvailableAttachments();
+
+            // Get all attachments and filter by compatibility with ANY selected gun
+            com.tacz.guns.api.TimelessAPI.getAllCommonAttachmentIndex().forEach(entry -> {
+                ResourceLocation attachId = entry.getKey();
+                try {
+                    ItemStack attachStack = buildAttachment(attachId);
+                    if (attachStack.isEmpty()) return;
+                    for (ItemStack gunStack : gunStacks) {
+                        if (gunStack.getItem() instanceof com.tacz.guns.api.item.IGun iGun) {
+                            if (iGun.allowAttachment(gunStack, attachStack)) {
+                                compatible.add(attachId);
+                                return;
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+            });
+        } catch (Exception e) {
+            return GunSelectionManager.getAllAvailableAttachments();
+        }
+        compatible.sort(Comparator.comparing(ResourceLocation::getPath));
+        return compatible;
+    }
+
     public static String formatPath(String path) {
         String[] words = path.split("_");
         StringBuilder sb = new StringBuilder();
@@ -122,6 +159,7 @@ public class GunHelper {
         }
         return sb.toString().trim();
     }
+
     public static ItemStack buildThrowable(ResourceLocation throwableId) {
         try {
             var indexes = me.xjqsh.lrtactical.api.LrTacticalAPI.getThrowableIndexes();

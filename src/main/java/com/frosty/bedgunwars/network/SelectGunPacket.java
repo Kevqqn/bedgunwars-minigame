@@ -8,6 +8,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
 import com.frosty.bedgunwars.game.GunHelper;
+import com.frosty.bedgunwars.network.OpenGunMenuPacket;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -58,6 +59,17 @@ public class SelectGunPacket {
                 if (!stack.isEmpty()) player.getInventory().add(stack);
             }
             player.containerMenu.broadcastChanges();
+
+            // Resend updated menu so attachment tab refreshes
+            List<ResourceLocation> allGuns = GunSelectionManager.getAllAvailableGuns();
+            List<ResourceLocation> compatibleAttachments = GunHelper.getCompatibleAttachments(validated);
+            List<ResourceLocation> currentAttachments = session.getGunSelectionManager().getAttachmentSelections(player.getUUID());
+            List<ResourceLocation> throwables = GunSelectionManager.getAllAvailableThrowables();
+            List<ResourceLocation> currentThrowables = session.getGunSelectionManager().getThrowableSelections(player.getUUID());
+            PacketHandler.sendToClient(player, new OpenGunMenuPacket(
+                    allGuns, validated,
+                    compatibleAttachments, currentAttachments,
+                    throwables, currentThrowables));
         });
         ctx.get().setPacketHandled(true);
     }

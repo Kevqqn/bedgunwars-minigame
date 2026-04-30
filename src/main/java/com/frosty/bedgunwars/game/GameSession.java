@@ -1,10 +1,14 @@
 package com.frosty.bedgunwars.game;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.server.ServerScoreboard;
+import net.minecraft.world.scores.Team;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -276,6 +280,24 @@ public class GameSession {
         winnerName = null;
         winnerDelayTicks = 0;
         matchStartPlayerCount = 0;
+    }
+
+    public void hideAllNametags(MinecraftServer server) {
+        net.minecraft.server.ServerScoreboard scoreboard = server.getScoreboard();
+        net.minecraft.world.scores.PlayerTeam existing = scoreboard.getPlayerTeam("bgw_players");
+        if (existing != null) scoreboard.removePlayerTeam(existing);
+        net.minecraft.world.scores.PlayerTeam team = scoreboard.addPlayerTeam("bgw_players");
+        team.setNameTagVisibility(net.minecraft.world.scores.Team.Visibility.NEVER);
+        for (UUID uuid : players) {
+            ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+            if (p != null) scoreboard.addPlayerToTeam(p.getGameProfile().getName(), team);
+        }
+    }
+
+    public void removeNametagTeams(MinecraftServer server) {
+        net.minecraft.server.ServerScoreboard scoreboard = server.getScoreboard();
+        net.minecraft.world.scores.PlayerTeam solo = scoreboard.getPlayerTeam("bgw_players");
+        if (solo != null) scoreboard.removePlayerTeam(solo);
     }
 
     public void assignSpawns(List<ServerPlayer> players) {

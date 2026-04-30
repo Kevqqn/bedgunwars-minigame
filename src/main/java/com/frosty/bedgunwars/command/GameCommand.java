@@ -92,7 +92,10 @@ public class GameCommand {
             return 0;
         }
 
-        source.sendSuccess(() -> Component.literal("You joined the game lobby"), false);
+        String playerName = player.getName().getString();
+        source.getServer().getPlayerList().getPlayers().forEach(p ->
+                p.sendSystemMessage(Component.literal("§6[NOTICE] §f" + playerName + " §ehas joined the game."))
+        );
         return 1;
     }
 

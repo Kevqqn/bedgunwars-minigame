@@ -240,6 +240,15 @@ public class GunSelectionScreen extends Screen {
             return;
         }
 
+        if (filtered.isEmpty()) {
+            if (activeTab == 1 && selectedGuns.isEmpty()) {
+                g.drawCenteredString(font, "§7Select weapons first", LIST_X + LIST_W / 2, LIST_Y + listH / 2 - 4, 0x666666);
+            } else {
+                g.drawCenteredString(font, "§7No items found", LIST_X + LIST_W / 2, LIST_Y + listH / 2 - 4, 0x666666);
+            }
+            return;
+        }
+
         for (int i = 0; i < VISIBLE_ROWS; i++) {
             int idx = i + scrollOffset;
             if (idx >= filtered.size()) break;

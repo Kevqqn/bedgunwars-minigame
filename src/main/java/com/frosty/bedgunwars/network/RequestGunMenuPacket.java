@@ -1,9 +1,6 @@
 package com.frosty.bedgunwars.network;
 
-import com.frosty.bedgunwars.game.GameManager;
-import com.frosty.bedgunwars.game.GamePhase;
-import com.frosty.bedgunwars.game.GameSession;
-import com.frosty.bedgunwars.game.GunSelectionManager;
+import com.frosty.bedgunwars.game.*;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -30,19 +27,17 @@ public class RequestGunMenuPacket {
             if (session.getPhase() != GamePhase.PREPARATION) return;
             if (!session.getPlayers().contains(player.getUUID())) return;
 
-            GunSelectionManager gsm = session.getGunSelectionManager();
-
-            List<ResourceLocation> allGuns        = GunSelectionManager.getAllAvailableGuns();
-            List<ResourceLocation> currentGuns    = gsm.getGunSelections(player.getUUID());
-            List<ResourceLocation> allAtt         = GunSelectionManager.getAllAvailableAttachments();
-            List<ResourceLocation> currentAtt     = gsm.getAttachmentSelections(player.getUUID());
-            List<ResourceLocation> allThrow       = GunSelectionManager.getAllAvailableThrowables();
-            List<ResourceLocation> currentThrow   = gsm.getThrowableSelections(player.getUUID());
+            List<ResourceLocation> allGuns = GunSelectionManager.getAllAvailableGuns();
+            List<ResourceLocation> currentGuns = session.getGunSelectionManager().getGunSelections(player.getUUID());
+            List<ResourceLocation> compatibleAttachments = GunHelper.getCompatibleAttachments(currentGuns);
+            List<ResourceLocation> currentAttachments = session.getGunSelectionManager().getAttachmentSelections(player.getUUID());
+            List<ResourceLocation> throwables = GunSelectionManager.getAllAvailableThrowables();
+            List<ResourceLocation> currentThrowables = session.getGunSelectionManager().getThrowableSelections(player.getUUID());
 
             PacketHandler.sendToClient(player, new OpenGunMenuPacket(
                     allGuns, currentGuns,
-                    allAtt, currentAtt,
-                    allThrow, currentThrow));
+                    compatibleAttachments, currentAttachments,
+                    throwables, currentThrowables));
         });
         ctx.get().setPacketHandled(true);
     }
