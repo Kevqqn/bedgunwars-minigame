@@ -50,6 +50,7 @@ public class GameSession {
     private final Map<UUID, Integer> noMoveTicks = new HashMap<>();
     private final Map<UUID, Integer> glowTicks = new HashMap<>();
     private static final int NO_MOVE_THRESHOLD = 15 * 20;
+    private static final int NO_MOVE_WARNING   = 12 * 20; // warn at 12s, reveal at 15s
     private static final int GLOW_DURATION = 3 * 20;
 
     private final Map<UUID, PlayerSnapshot> savedPlayerStates = new HashMap<>();
@@ -145,14 +146,52 @@ public class GameSession {
     public Set<UUID> getPlayers() { return players; }
     public void addPlayer(UUID uuid) { players.add(uuid); }
 
+    // Reconnecting players
+    private final Set<UUID> disconnectedDuringPrep = new HashSet<>();
+
+    // Safeguard for reconnecting players
+    private final Set<UUID> processingDisconnect = new HashSet<>();
+
+    // tell mod that disconnected players doesn't mean they're out from the player set
+    private final Set<UUID> offlinePlayers = new HashSet<>();
+
+    public void markOffline(UUID uuid) { offlinePlayers.add(uuid); }
+    public void markOnline(UUID uuid) { offlinePlayers.remove(uuid); }
+    public boolean isOffline(UUID uuid) { return offlinePlayers.contains(uuid); }
+    public Set<UUID> getOfflinePlayers() { return offlinePlayers; }
+
+    public boolean tryLockDisconnect(UUID uuid) {
+        return processingDisconnect.add(uuid); // returns false if already processing
+    }
+
+    public void unlockDisconnect(UUID uuid) {
+        processingDisconnect.remove(uuid);
+    }
+
+    // Host disconnect
+    private int hostDisconnectTicks = 0; // 0 = host is online
+    private static final int HOST_RECONNECT_GRACE = 60 * 20; // 60 seconds
+
+    public void startHostDisconnectTimer() { hostDisconnectTicks = HOST_RECONNECT_GRACE; }
+    public void clearHostDisconnectTimer() { hostDisconnectTicks = 0; }
+    public void decreaseHostDisconnectTicks() { if (hostDisconnectTicks > 0) hostDisconnectTicks--; }
+    public int getHostDisconnectTicks() { return hostDisconnectTicks; }
+    public boolean isHostDisconnected() { return hostDisconnectTicks > 0; }
+
+    public Set<UUID> getDisconnectedDuringPrep() { return disconnectedDuringPrep; }
+
     // anti sitting duck on end game
     public Map<UUID, net.minecraft.core.BlockPos> getLastKnownPositions() { return lastKnownPositions; }
     public Map<UUID, Integer> getNoMoveTicks() { return noMoveTicks; }
     public Map<UUID, Integer> getGlowTicks() { return glowTicks; }
     public int getNoMoveThreshold() { return NO_MOVE_THRESHOLD; }
     public int getGlowDuration() { return GLOW_DURATION; }
+    public Set<UUID> getWarnedPlayers() { return warnedPlayers; }
+    public int getNoMoveWarningThreshold() { return NO_MOVE_WARNING; }
 
-    // --- Teams ---
+    private final Set<UUID> warnedPlayers = new HashSet<>();
+
+    // Teams
     public Map<UUID, String> getPlayerTeams() { return playerTeams; }
     public void setPlayerTeam(UUID uuid, String teamName) { playerTeams.put(uuid, teamName); }
     public String getPlayerTeam(UUID uuid) { return playerTeams.get(uuid); }
@@ -171,7 +210,7 @@ public class GameSession {
     private boolean friendlyFire = false;
     private int teamCount = 2;
 
-    // --- Beds ---
+    // Beds
     public boolean hasPlacedBed(UUID uuid) { return playerBeds.containsKey(uuid); }
     public BlockPos getPlayerBed(UUID uuid) { return playerBeds.get(uuid); }
     public Map<UUID, BlockPos> getAllPlayerBeds() { return playerBeds; }
@@ -195,6 +234,22 @@ public class GameSession {
         brokenBeds.add(owner);
         bedOwners.entrySet().removeIf(e -> e.getValue().equals(owner));
     }
+
+    // Player money system
+    private final Map<UUID, Integer> playerMoney = new HashMap<>();
+
+    public int getMoney(UUID uuid) { return playerMoney.getOrDefault(uuid, 0); }
+    public void addMoney(UUID uuid, int amount) { playerMoney.merge(uuid, amount, Integer::sum); }
+    public boolean spendMoney(UUID uuid, int cost) {
+        int current = getMoney(uuid);
+        if (current < cost) return false;
+        playerMoney.put(uuid, current - cost);
+        return true;
+    }
+
+    // upgrades with the player money system
+    private final BedUpgradeManager bedUpgradeManager = new BedUpgradeManager();
+    public BedUpgradeManager getBedUpgradeManager() { return bedUpgradeManager; }
 
     public boolean isBedBroken(UUID uuid) { return brokenBeds.contains(uuid); }
 
@@ -228,7 +283,7 @@ public class GameSession {
         if (winnerDelayTicks > 0) winnerDelayTicks--;
     }
 
-    // --- Snapshots ---
+    // Snapshots
     public boolean hasSnapshot(UUID uuid) { return savedPlayerStates.containsKey(uuid); }
     public Map<UUID, PlayerSnapshot> getSavedSnapshots() { return savedPlayerStates; }
 
@@ -241,7 +296,7 @@ public class GameSession {
         if (snapshot != null) snapshot.restore(player);
     }
 
-    // --- Border snapshot ---
+    // Border snapshot
     public void captureBorderState() {
         if (borderSnapshotCaptured) return;
         var border = level.getWorldBorder();
@@ -256,15 +311,22 @@ public class GameSession {
     public double getOriginalBorderCenterZ() { return originalBorderCenterZ; }
     public double getOriginalBorderSize() { return originalBorderSize; }
 
-    // --- Disconnect ---
+    // Disconnect
     public void handlePlayerDisconnect(UUID uuid, boolean eliminate) {
-        joinedPlayers.remove(uuid);
-        players.remove(uuid);
-        pendingRespawnPlayers.remove(uuid);
-        if (eliminate) eliminatedPlayers.add(uuid);
-        playerTeams.remove(uuid);
-        if (playerBeds.containsKey(uuid)) removePlayerBed(uuid);
-        brokenBeds.remove(uuid);
+        if (eliminate) {
+            // Actually eliminate — remove from everything
+            joinedPlayers.remove(uuid);
+            players.remove(uuid);
+            pendingRespawnPlayers.remove(uuid);
+            eliminatedPlayers.add(uuid);
+            playerTeams.remove(uuid);
+            if (playerBeds.containsKey(uuid)) removePlayerBed(uuid);
+            brokenBeds.remove(uuid);
+        } else {
+            // Just temporarily offline — keep in players set
+            markOffline(uuid);
+            pendingRespawnPlayers.remove(uuid);
+        }
     }
 
     public void resetMatchState() {
@@ -277,9 +339,14 @@ public class GameSession {
         pendingRespawnPlayers.clear();
         gunSelectionManager.clear();
         teamBedOwners.clear();
+        disconnectedDuringPrep.clear();
         winnerName = null;
         winnerDelayTicks = 0;
         matchStartPlayerCount = 0;
+        offlinePlayers.clear();
+        warnedPlayers.clear();
+        playerMoney.clear();
+        bedUpgradeManager.clear();
     }
 
     public void hideAllNametags(MinecraftServer server) {
@@ -311,7 +378,7 @@ public class GameSession {
         }
     }
 
-    // --- Inner PlayerSnapshot ---
+    // Inner PlayerSnapshot
     public static class PlayerSnapshot {
         private final ServerLevel level;
         private final double x, y, z;

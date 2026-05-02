@@ -326,6 +326,7 @@ public class GameCommand {
             for (ServerPlayer player : players) {
                 session.addPlayer(player.getUUID());
                 session.setPlayerTeam(player.getUUID(), player.getGameProfile().getName());
+                session.getBedUpgradeManager().initTeam(player.getUUID().toString());
             }
             return;
         }
@@ -426,7 +427,7 @@ public class GameCommand {
             }
 
             player.getInventory().setItem(1, new ItemStack(Items.GOLDEN_APPLE, 32));
-            player.getInventory().setItem(2, new ItemStack(Items.NETHERITE_PICKAXE, 1));
+            player.getInventory().setItem(2, new ItemStack(Items.WOODEN_PICKAXE, 1));
             player.getInventory().setItem(3, new ItemStack(Items.STONE, 64));
 
             ItemStack ammoBox = new ItemStack(BuiltInRegistries.ITEM.get(

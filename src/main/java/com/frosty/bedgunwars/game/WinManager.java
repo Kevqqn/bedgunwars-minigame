@@ -23,7 +23,7 @@ public class WinManager {
         if (session == null || !session.isActive()) return;
         if (session.getPhase() != GamePhase.ACTIVE && session.getPhase() != GamePhase.ENDING) return;
 
-        // Safeguard: single-player testing — don't auto-end immediately
+        // Safeguard: single-player testing, don't auto-end immediately
         if (session.getMatchStartPlayerCount() <= 1) return;
 
         if (session.getMode() == GameModeType.SOLO) {
@@ -39,6 +39,7 @@ public class WinManager {
 
         for (UUID uuid : session.getPlayers()) {
             if (session.isEliminated(uuid)) continue;
+            if (session.isOffline(uuid)) continue; // don't count offline players as alive for win check
             aliveCount++;
             lastAlive = uuid;
             if (aliveCount > 1) return;
@@ -56,6 +57,7 @@ public class WinManager {
 
         for (UUID uuid : session.getPlayers()) {
             if (session.isEliminated(uuid)) continue;
+            if (session.isOffline(uuid)) continue;
             String team = session.getPlayerTeam(uuid);
             if (team != null) aliveTeams.add(team);
             if (aliveTeams.size() > 1) return;

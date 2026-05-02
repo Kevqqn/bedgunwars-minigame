@@ -5,12 +5,16 @@ import com.frosty.bedgunwars.game.GamePhase;
 import com.frosty.bedgunwars.game.GameSession;
 import com.frosty.bedgunwars.game.WinManager;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import com.frosty.bedgunwars.game.SoundHelper;
 import com.frosty.bedgunwars.game.TeamManager;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import com.frosty.bedgunwars.game.GameModeType;
+import com.frosty.bedgunwars.event.GameTickHandler;
+import net.minecraft.world.level.GameType;
+import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 
 import java.util.UUID;
@@ -34,11 +38,17 @@ public class PlayerDeathHandler {
         if (event.getSource().getEntity() instanceof ServerPlayer killer) {
             if (!killer.getUUID().equals(uuid)) {
                 session.addKill(killer.getUUID());
+                session.addMoney(killer.getUUID(), 150);
+                killer.sendSystemMessage(Component.literal("§a+$150 §7(Kill)"));
             }
         }
 
         if (session.getPhase() == GamePhase.ENDING) {
+            // Cancel death, eliminate, set spectator
+            event.setCanceled(true);
+            player.setHealth(player.getMaxHealth());
             session.eliminatePlayer(uuid);
+            player.setGameMode(net.minecraft.world.level.GameType.SPECTATOR);
             sendNotice(player, "You are eliminated!");
             WinManager.checkWinner(session);
             return;
@@ -48,10 +58,14 @@ public class PlayerDeathHandler {
             boolean hasBed = session.hasPlacedBed(uuid);
             boolean bedBroken = session.isBedBroken(uuid);
             if (hasBed && !bedBroken) {
-                session.markPendingRespawn(uuid);
-                sendNotice(player, "Bed is safe, respawning...");
+                event.setCanceled(true);
+                player.setHealth(player.getMaxHealth());
+                scheduleRespawn(player, session);
             } else {
+                event.setCanceled(true);
+                player.setHealth(player.getMaxHealth());
                 session.eliminatePlayer(uuid);
+                player.setGameMode(net.minecraft.world.level.GameType.SPECTATOR);
                 sendNotice(player, "You are eliminated!");
                 WinManager.checkWinner(session);
             }
@@ -59,10 +73,14 @@ public class PlayerDeathHandler {
             String team = session.getPlayerTeam(uuid);
             boolean teamBedBroken = TeamManager.isTeamBedBroken(session, team);
             if (!teamBedBroken) {
-                session.markPendingRespawn(uuid);
-                sendNotice(player, "Your team's bed is safe, respawning...");
+                event.setCanceled(true);
+                player.setHealth(player.getMaxHealth());
+                scheduleRespawn(player, session);
             } else {
+                event.setCanceled(true);
+                player.setHealth(player.getMaxHealth());
                 session.eliminatePlayer(uuid);
+                player.setGameMode(net.minecraft.world.level.GameType.SPECTATOR);
                 sendNotice(player, "You are eliminated!");
                 WinManager.checkWinner(session);
             }
@@ -94,5 +112,71 @@ public class PlayerDeathHandler {
                                 .withStyle(s -> s.withColor(net.minecraft.ChatFormatting.GOLD)));
         player.sendSystemMessage(prefix.append(Component.literal(message)));
         SoundHelper.playNoteClick(player, SoundHelper.noteToPitch(20));
+    }
+
+    private void scheduleRespawn(ServerPlayer player, GameSession session) {
+        UUID uuid = player.getUUID();
+        MinecraftServer server = player.getServer();
+        if (server == null) return;
+
+        // Put into spectator immediately
+        player.setGameMode(net.minecraft.world.level.GameType.SPECTATOR);
+
+        sendNotice(player, "Bed is safe! Respawning in §e3§f...");
+        GameTickHandler.scheduleTask(20, () -> {
+            ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+            if (p == null || !session.isActive()) return;
+            sendNotice(p, "Respawning in §e2§f...");
+        });
+        GameTickHandler.scheduleTask(40, () -> {
+            ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+            if (p == null || !session.isActive()) return;
+            sendNotice(p, "Respawning in §e1§f...");
+        });
+        GameTickHandler.scheduleTask(60, () -> {
+            ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+            if (p == null || !session.isActive()) return;
+
+            // Find respawn position near bed
+            net.minecraft.core.BlockPos bedPos = getRespawnPos(session, uuid);
+            if (bedPos != null) {
+                p.teleportTo(p.serverLevel(),
+                        bedPos.getX() + 0.5, bedPos.getY() + 0.1, bedPos.getZ() + 0.5,
+                        p.getYRot(), p.getXRot());
+            }
+            p.setHealth(p.getMaxHealth());
+            p.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+            sendNotice(p, "Respawned!");
+        });
+    }
+
+    private net.minecraft.core.BlockPos getRespawnPos(GameSession session, UUID uuid) {
+        net.minecraft.core.BlockPos bedPos;
+        if (session.getMode() == GameModeType.TEAMS) {
+            String team = session.getPlayerTeam(uuid);
+            UUID bedOwner = session.getTeamBedOwner(team);
+            bedPos = bedOwner != null ? session.getPlayerBed(bedOwner) : null;
+        } else {
+            bedPos = session.getPlayerBed(uuid);
+        }
+        if (bedPos == null) return null;
+        for (int radius = 1; radius <= 5; radius++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    for (int dy = 0; dy <= 3; dy++) {
+                        net.minecraft.core.BlockPos candidate = bedPos.offset(dx, dy, dz);
+                        if (isSafeSpawn(session, candidate)) return candidate;
+                    }
+                }
+            }
+        }
+        return bedPos.above();
+    }
+
+    private boolean isSafeSpawn(GameSession session, net.minecraft.core.BlockPos pos) {
+        var level = session.getLevel();
+        return level.getBlockState(pos).isAir()
+                && level.getBlockState(pos.above()).isAir()
+                && !level.getBlockState(pos.below()).isAir();
     }
 }

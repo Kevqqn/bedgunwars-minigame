@@ -6,7 +6,10 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.network.NetworkEvent;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.function.Supplier;
 
 public class RequestGunMenuPacket {
@@ -27,18 +30,33 @@ public class RequestGunMenuPacket {
             if (session.getPhase() != GamePhase.PREPARATION) return;
             if (!session.getPlayers().contains(player.getUUID())) return;
 
-            List<ResourceLocation> allGuns = GunSelectionManager.getAllAvailableGuns();
-            List<ResourceLocation> currentGuns = session.getGunSelectionManager().getGunSelections(player.getUUID());
-            List<ResourceLocation> compatibleAttachments = GunHelper.getCompatibleAttachments(currentGuns);
-            List<ResourceLocation> currentAttachments = session.getGunSelectionManager().getAttachmentSelections(player.getUUID());
-            List<ResourceLocation> throwables = GunSelectionManager.getAllAvailableThrowables();
-            List<ResourceLocation> currentThrowables = session.getGunSelectionManager().getThrowableSelections(player.getUUID());
+            GunSelectionManager gsm = session.getGunSelectionManager();
+            UUID uuid = player.getUUID();
+
+            List<ResourceLocation> allGuns     = GunSelectionManager.getAllAvailableGuns();
+            List<ResourceLocation> currentGuns = gsm.getGunSelections(uuid);
+            List<ResourceLocation> allAtt      = GunHelper.getCompatibleAttachments(currentGuns);
+            List<ResourceLocation> allThrow    = GunSelectionManager.getAllAvailableThrowables();
+            List<ResourceLocation> currentThrow = gsm.getThrowableSelections(uuid);
+
+            Map<Integer, Map<String, String>> gunAttachments = buildAttachmentMap(uuid, gsm);
 
             PacketHandler.sendToClient(player, new OpenGunMenuPacket(
                     allGuns, currentGuns,
-                    compatibleAttachments, currentAttachments,
-                    throwables, currentThrowables));
+                    allAtt, new java.util.ArrayList<>(),
+                    allThrow, currentThrow,
+                    gunAttachments));
         });
         ctx.get().setPacketHandled(true);
+    }
+
+    static Map<Integer, Map<String, String>> buildAttachmentMap(UUID uuid, GunSelectionManager gsm) {
+        Map<Integer, Map<String, String>> result = new HashMap<>();
+        gsm.getAllGunAttachments(uuid).forEach((slot, typeMap) -> {
+            Map<String, String> stringMap = new HashMap<>();
+            typeMap.forEach((type, id) -> stringMap.put(type.name(), id.toString()));
+            result.put(slot, stringMap);
+        });
+        return result;
     }
 }

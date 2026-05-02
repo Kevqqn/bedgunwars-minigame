@@ -242,4 +242,34 @@ public class GameDebugCommand {
             p.sendSystemMessage(Component.literal(message));
         }
     }
+    public static int giveMoney(CommandSourceStack source, String targetName, int amount) {
+        GameSession session = GameManager.getSession();
+        if (session == null || !session.isActive()) {
+            source.sendFailure(Component.literal("No active game."));
+            return 0;
+        }
+        if (!isHost(source, session)) {
+            source.sendFailure(Component.literal("Only the host can use debug commands."));
+            return 0;
+        }
+
+        if (targetName.equals("@a")) {
+            for (UUID uuid : session.getPlayers()) {
+                session.addMoney(uuid, amount);
+                ServerPlayer p = source.getServer().getPlayerList().getPlayer(uuid);
+                if (p != null) p.sendSystemMessage(Component.literal("§a+$" + amount + " §7(Debug)"));
+            }
+            source.sendSuccess(() -> Component.literal("Gave $" + amount + " to all players."), false);
+        } else {
+            ServerPlayer target = findInGamePlayer(source.getServer(), session, targetName);
+            if (target == null) {
+                source.sendFailure(Component.literal("Player '" + targetName + "' is not in the game."));
+                return 0;
+            }
+            session.addMoney(target.getUUID(), amount);
+            target.sendSystemMessage(Component.literal("§a+$" + amount + " §7(Debug)"));
+            source.sendSuccess(() -> Component.literal("Gave $" + amount + " to " + target.getName().getString() + "."), false);
+        }
+        return 1;
+    }
 }

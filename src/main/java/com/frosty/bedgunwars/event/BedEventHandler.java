@@ -1,9 +1,6 @@
 package com.frosty.bedgunwars.event;
 
-import com.frosty.bedgunwars.game.GameManager;
-import com.frosty.bedgunwars.game.GameModeType;
-import com.frosty.bedgunwars.game.GamePhase;
-import com.frosty.bedgunwars.game.GameSession;
+import com.frosty.bedgunwars.game.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -14,7 +11,6 @@ import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BedPart;
 import net.minecraftforge.event.level.BlockEvent;
-import com.frosty.bedgunwars.game.SoundHelper;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LightningBolt;
@@ -138,6 +134,10 @@ public class BedEventHandler {
             if (!session.isBedBroken(owner)) {
                 session.breakBed(owner);
 
+                // Award money to the player who broke the bed
+                session.addMoney(breaker, 500);
+                player.sendSystemMessage(Component.literal("§a+$500 §7(Bed Destroyed)"));
+
                 MinecraftServer server = session.getLevel().getServer();
                 String breakerName = player.getName().getString();
 
@@ -181,5 +181,71 @@ public class BedEventHandler {
                                 .withStyle(s -> s.withColor(net.minecraft.ChatFormatting.GOLD)));
         player.sendSystemMessage(prefix.append(Component.literal(message)));
         SoundHelper.playNoteClick(player, SoundHelper.noteToPitch(20));
+    }
+    @SubscribeEvent
+    public void onPlayerInteract(net.minecraftforge.event.entity.player.PlayerInteractEvent.RightClickBlock event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        if (!GameManager.hasGame()) return;
+        GameSession session = GameManager.getSession();
+        if (session == null || !session.isActive()) return;
+        if (session.getPhase() != GamePhase.PREPARATION && session.getPhase() != GamePhase.ACTIVE) return;
+
+        BlockPos pos = event.getPos();
+        net.minecraft.world.level.block.state.BlockState state = event.getLevel().getBlockState(pos);
+        if (!(state.getBlock() instanceof BedBlock)) return;
+
+        UUID uuid = player.getUUID();
+        if (!session.getPlayers().contains(uuid)) return;
+
+        // Check if this is the player's own bed or their team's bed
+        String team = BedUpgradeMenu.getTeamKey(player, session);
+        UUID bedOwner = session.getMode() == GameModeType.TEAMS
+                ? session.getTeamBedOwner(session.getPlayerTeam(uuid))
+                : uuid;
+        if (bedOwner == null) return;
+        BlockPos bedPos = session.getPlayerBed(bedOwner);
+        if (bedPos == null) return;
+
+        // Check both foot and head of bed
+        net.minecraft.core.Direction facing = state.getValue(BedBlock.FACING);
+        BlockPos headPos = pos.relative(facing);
+        if (!pos.equals(bedPos) && !headPos.equals(bedPos) && !pos.relative(facing.getOpposite()).equals(bedPos)) return;
+
+        event.setCanceled(true);
+        event.setUseBlock(net.minecraftforge.eventbus.api.Event.Result.DENY);
+        BedUpgradeMenu.open(player, session);
+    }
+    @SubscribeEvent
+    public void onCompassUse(net.minecraftforge.event.entity.player.PlayerInteractEvent.RightClickItem event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        ItemStack held = player.getMainHandItem();
+        if (!(held.getItem() instanceof net.minecraft.world.item.CompassItem)) return;
+        if (!held.hasCustomHoverName()) return;
+        if (!held.getHoverName().getString().contains("Bed Teleport")) return;
+        if (!GameManager.hasGame()) return;
+        GameSession session = GameManager.getSession();
+        if (session == null || !session.isActive()) return;
+
+        UUID uuid = player.getUUID();
+        UUID bedOwner = session.getMode() == GameModeType.TEAMS
+                ? session.getTeamBedOwner(session.getPlayerTeam(uuid))
+                : uuid;
+        if (bedOwner == null) return;
+        net.minecraft.core.BlockPos bedPos = session.getPlayerBed(bedOwner);
+        if (bedPos == null) {
+            player.sendSystemMessage(Component.literal("§cYour bed has not been placed yet!"));
+            return;
+        }
+
+        player.teleportTo(player.serverLevel(),
+                bedPos.getX() + 0.5, bedPos.getY() + 1, bedPos.getZ() + 0.5,
+                player.getYRot(), player.getXRot());
+        player.sendSystemMessage(Component.literal("§aTeleported to your bed!"));
+
+        // Consume compass and reset upgrade to T0
+        held.shrink(1);
+        String team = BedUpgradeMenu.getTeamKey(player, session);
+        session.getBedUpgradeManager().setTier(team, BedUpgradeManager.UpgradeType.TP_TO_BED, 0);
+        event.setCanceled(true);
     }
 }

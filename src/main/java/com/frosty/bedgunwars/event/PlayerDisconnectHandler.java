@@ -1,9 +1,6 @@
 package com.frosty.bedgunwars.event;
 
-import com.frosty.bedgunwars.game.GameManager;
-import com.frosty.bedgunwars.game.GameSession;
-import com.frosty.bedgunwars.game.GamePhase;
-import com.frosty.bedgunwars.game.WinManager;
+import com.frosty.bedgunwars.game.*;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -17,30 +14,38 @@ public class PlayerDisconnectHandler {
     @SubscribeEvent
     public static void onLeave(PlayerEvent.PlayerLoggedOutEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
-        if (!GameManager.hasGame()) return;
-
-        GameSession session = GameManager.getSession();
+        if (!GameManager.hasGame()) {
+            return;
+        }
         UUID uuid = player.getUUID();
 
+        GameSession session = GameManager.getSession();
+        GamePhase phase = session.getPhase();
+
         if (uuid.equals(session.getHostUuid())) {
-            GameManager.end(); // host disconnect -> end
+            session.startHostDisconnectTimer();
+            // Broadcast warning to all players
+            for (net.minecraft.server.level.ServerPlayer p : player.getServer().getPlayerList().getPlayers()) {
+                p.sendSystemMessage(Component.literal("§c[NOTICE] §fHost disconnected. Game will end in 60 seconds if host doesn't reconnect."));
+            }
             return;
         }
 
-        GamePhase phase = session.getPhase();
-
         if (phase == GamePhase.STARTING || phase == GamePhase.PREPARATION) {
-            session.handlePlayerDisconnect(uuid, false);
+            // Don't remove from session — just mark as temporarily disconnected
+            session.getDisconnectedDuringPrep().add(uuid);
             return;
         }
 
         if (phase == GamePhase.ACTIVE && session.getPlayers().contains(uuid) && !session.isEliminated(uuid)) {
+            if (!session.tryLockDisconnect(uuid)) return; // already being processed
             if (session.isBedBroken(uuid)) {
                 session.handlePlayerDisconnect(uuid, true);
                 WinManager.checkWinner(session);
             } else {
                 session.handlePlayerDisconnect(uuid, false);
             }
+            session.unlockDisconnect(uuid);
         }
     }
 }

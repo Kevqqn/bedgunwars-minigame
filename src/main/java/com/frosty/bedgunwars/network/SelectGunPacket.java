@@ -8,10 +8,10 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
 import com.frosty.bedgunwars.game.GunHelper;
-import com.frosty.bedgunwars.network.OpenGunMenuPacket;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.function.Supplier;
 
 public class SelectGunPacket {
@@ -45,13 +45,23 @@ public class SelectGunPacket {
             if (!session.getPlayers().contains(player.getUUID())) return;
 
             GunSelectionManager gsm = session.getGunSelectionManager();
+            UUID uuid = player.getUUID();
+
             List<ResourceLocation> validated = new ArrayList<>();
             for (ResourceLocation id : msg.gunIds) {
                 validated.add(id);
                 if (validated.size() >= gsm.getMaxGunSlots()) break;
             }
 
-            gsm.setGunSelections(player.getUUID(), validated);
+            // Clear attachments for any gun slots that changed
+            List<ResourceLocation> oldGuns = gsm.getGunSelections(uuid);
+            for (int i = 0; i < oldGuns.size(); i++) {
+                if (i >= validated.size() || !oldGuns.get(i).equals(validated.get(i))) {
+                    gsm.clearGunAttachments(uuid, i);
+                }
+            }
+
+            gsm.setGunSelections(uuid, validated);
 
             removeGunsFromInventory(player);
             for (ResourceLocation id : validated) {
@@ -60,16 +70,16 @@ public class SelectGunPacket {
             }
             player.containerMenu.broadcastChanges();
 
-            // Resend updated menu so attachment tab refreshes
-            List<ResourceLocation> allGuns = GunSelectionManager.getAllAvailableGuns();
-            List<ResourceLocation> compatibleAttachments = GunHelper.getCompatibleAttachments(validated);
-            List<ResourceLocation> currentAttachments = session.getGunSelectionManager().getAttachmentSelections(player.getUUID());
-            List<ResourceLocation> throwables = GunSelectionManager.getAllAvailableThrowables();
-            List<ResourceLocation> currentThrowables = session.getGunSelectionManager().getThrowableSelections(player.getUUID());
+            // Resend updated menu with new compatible attachments
+            List<ResourceLocation> allGuns  = GunSelectionManager.getAllAvailableGuns();
+            List<ResourceLocation> allAtt   = GunHelper.getCompatibleAttachments(validated);
+            List<ResourceLocation> allThrow = GunSelectionManager.getAllAvailableThrowables();
+            List<ResourceLocation> currentThrow = gsm.getThrowableSelections(uuid);
             PacketHandler.sendToClient(player, new OpenGunMenuPacket(
                     allGuns, validated,
-                    compatibleAttachments, currentAttachments,
-                    throwables, currentThrowables));
+                    allAtt, new ArrayList<>(),
+                    allThrow, currentThrow,
+                    RequestGunMenuPacket.buildAttachmentMap(uuid, gsm)));
         });
         ctx.get().setPacketHandled(true);
     }
@@ -78,14 +88,6 @@ public class SelectGunPacket {
         for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             ItemStack stack = player.getInventory().getItem(i);
             if (!stack.isEmpty() && stack.getItem() instanceof IGun) {
-                player.getInventory().setItem(i, ItemStack.EMPTY);
-            }
-        }
-    }
-    private static void removeAttachmentsFromInventory(ServerPlayer player) {
-        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
-            ItemStack stack = player.getInventory().getItem(i);
-            if (!stack.isEmpty() && stack.getItem() instanceof com.tacz.guns.api.item.IAttachment) {
                 player.getInventory().setItem(i, ItemStack.EMPTY);
             }
         }

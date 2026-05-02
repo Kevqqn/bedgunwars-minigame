@@ -16,6 +16,9 @@ public class GameManager {
     }
 
     public static void end() {
+        if (currentSession != null) {
+            currentSession.end();
+        }
         currentSession = null;
     }
 }

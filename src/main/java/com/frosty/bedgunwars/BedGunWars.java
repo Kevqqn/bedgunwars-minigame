@@ -5,7 +5,7 @@ import com.frosty.bedgunwars.command.GameDebugCommand;
 import com.frosty.bedgunwars.event.BedEventHandler;
 import com.frosty.bedgunwars.event.GameTickHandler;
 import com.frosty.bedgunwars.event.PlayerDeathHandler;
-import com.frosty.bedgunwars.event.PlayerRespawnHandler;
+// import com.frosty.bedgunwars.event.PlayerRespawnHandler;
 import com.frosty.bedgunwars.game.GameManager;
 import com.frosty.bedgunwars.game.GameModeType;
 import com.frosty.bedgunwars.game.GamePhase;
@@ -35,7 +35,6 @@ public class BedGunWars {
         MinecraftForge.EVENT_BUS.register(new GameTickHandler());
         MinecraftForge.EVENT_BUS.register(new BedEventHandler());
         MinecraftForge.EVENT_BUS.register(new PlayerDeathHandler());
-        MinecraftForge.EVENT_BUS.register(new PlayerRespawnHandler());
         PacketHandler.register();
         System.out.println("BedGunWars Loaded");
     }
@@ -177,6 +176,13 @@ public class BedGunWars {
                                 )
                                 .then(Commands.literal("listtaczitems")
                                         .executes(ctx -> GameDebugCommand.listTaczItems(ctx.getSource())))
+                                .then(Commands.literal("givemoney")
+                                        .then(Commands.argument("target", StringArgumentType.word())
+                                                .then(Commands.argument("amount", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1))
+                                                        .executes(ctx -> GameDebugCommand.giveMoney(
+                                                                ctx.getSource(),
+                                                                StringArgumentType.getString(ctx, "target"),
+                                                                com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "amount"))))))
                         )
 
         );

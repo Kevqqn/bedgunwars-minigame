@@ -19,7 +19,12 @@ import com.frosty.bedgunwars.ui.GameScoreboard;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
+import com.frosty.bedgunwars.game.GameCleanupManager;
+import com.frosty.bedgunwars.game.BedUpgradeMenu;
+
+import java.util.ArrayList;
 import java.util.Map;
+import java.util.Set;
 
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
@@ -34,11 +39,36 @@ public class GameTickHandler {
     @SuppressWarnings("unused")
     @SubscribeEvent
     public void onServerTick(TickEvent.ServerTickEvent event) {
+        // Process scheduled tasks
+        for (int i = taskDelays.size() - 1; i >= 0; i--) {
+            taskDelays.set(i, taskDelays.get(i) - 1);
+            if (taskDelays.get(i) <= 0) {
+                scheduledTasks.get(i).run();
+                scheduledTasks.remove(i);
+                taskDelays.remove(i);
+            }
+        }
         if (event.phase != TickEvent.Phase.END) return;
         if (!GameManager.hasGame()) return;
 
         GameSession session = GameManager.getSession();
         GamePhase phase = session.getPhase();
+
+        // Host disconnect grace period
+        if (session.isHostDisconnected()) {
+            session.decreaseHostDisconnectTicks();
+            int secsLeft = session.getHostDisconnectTicks() / 20;
+            // Warn at 30s and 10s
+            if (session.getHostDisconnectTicks() == 30 * 20 || session.getHostDisconnectTicks() == 10 * 20) {
+                for (ServerPlayer p : event.getServer().getPlayerList().getPlayers()) {
+                    p.sendSystemMessage(Component.literal("§c[NOTICE] §fHost has " + secsLeft + "s to reconnect or match cancelled."));
+                }
+            }
+            if (session.getHostDisconnectTicks() <= 0) {
+                GameCleanupManager.restoreAndEnd(event.getServer(), session, "Host failed to reconnect. Match cancelled.");
+                return;
+            }
+        }
 
         if (phase == GamePhase.PREPARATION) {
             applyPrepEffects(event.getServer(), session);
@@ -94,6 +124,7 @@ public class GameTickHandler {
                 startEndgame(event.getServer(), session);
             }
             GameScoreboard.update(session);
+            tickBedUpgrades(event.getServer(), session);
         }
 
         else if (phase == GamePhase.ENDING) {
@@ -135,6 +166,14 @@ public class GameTickHandler {
                 );
             }
         }
+    }
+
+    private static final List<Runnable> scheduledTasks = new ArrayList<>();
+    private static final List<Integer> taskDelays = new ArrayList<>();
+
+    public static void scheduleTask(int delayTicks, Runnable task) {
+        scheduledTasks.add(task);
+        taskDelays.add(delayTicks);
     }
 
     private void applyPrepEffects(MinecraftServer server, GameSession session) {
@@ -214,9 +253,10 @@ public class GameTickHandler {
     }
 
     private void tickAntiSittingDuck(MinecraftServer server, GameSession session) {
-        Map<UUID, BlockPos> lastPos       = session.getLastKnownPositions();
-        Map<UUID, Integer>  noMoveTicks   = session.getNoMoveTicks();
-        Map<UUID, Integer>  glowTicks     = session.getGlowTicks();
+        Map<UUID, BlockPos> lastPos     = session.getLastKnownPositions();
+        Map<UUID, Integer>  noMoveTicks = session.getNoMoveTicks();
+        Map<UUID, Integer>  glowTicks   = session.getGlowTicks();
+        Set<UUID>           warned      = session.getWarnedPlayers();
 
         for (UUID uuid : session.getPlayers()) {
             if (session.isEliminated(uuid)) continue;
@@ -244,21 +284,152 @@ public class GameTickHandler {
                 int ticks = noMoveTicks.getOrDefault(uuid, 0) + 1;
                 noMoveTicks.put(uuid, ticks);
 
+                // Warning at NO_MOVE_WARNING threshold
+                if (ticks == session.getNoMoveWarningThreshold()) {
+                    warned.add(uuid);
+                    int secsUntilReveal = (session.getNoMoveThreshold() - session.getNoMoveWarningThreshold()) / 20;
+                    player.sendSystemMessage(Component.literal(
+                            "§c[WARNING] §fYou haven't moved! You will be revealed in §e"
+                                    + secsUntilReveal + " seconds §fif you don't move!"));
+                    SoundHelper.playNoteClick(player, SoundHelper.noteToPitch(20));
+                }
+
+                // Reveal at NO_MOVE_THRESHOLD
                 if (ticks >= session.getNoMoveThreshold()) {
-                    // Reveal
-                    player.addEffect(new MobEffectInstance(MobEffects.GLOWING, session.getGlowDuration(), 0, false, false));
+                    player.addEffect(new MobEffectInstance(MobEffects.GLOWING,
+                            session.getGlowDuration(), 0, false, false));
                     glowTicks.put(uuid, session.getGlowDuration());
                     noMoveTicks.put(uuid, 0);
-
+                    warned.remove(uuid);
                     for (ServerPlayer p : server.getPlayerList().getPlayers()) {
-                        p.sendSystemMessage(Component.literal("§6[NOTICE] §eA player has been revealed due to not moving."));
+                        p.sendSystemMessage(Component.literal(
+                                "§6[NOTICE] §eA player has been revealed due to not moving."));
                     }
                 }
             } else {
+                // Player moved — reset counter and cancel warning if active
+                if (warned.contains(uuid)) {
+                    warned.remove(uuid);
+                    player.sendSystemMessage(Component.literal(
+                            "§a[NOTICE] §fWarning cancelled — keep moving!"));
+                }
                 noMoveTicks.put(uuid, 0);
             }
 
             lastPos.put(uuid, currentPos);
+        }
+    }
+
+    private void tickBedUpgrades(MinecraftServer server, GameSession session) {
+        BedUpgradeManager mgr = session.getBedUpgradeManager();
+
+        for (UUID uuid : session.getPlayers()) {
+            if (session.isEliminated(uuid)) continue;
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player == null) continue;
+
+            String team = BedUpgradeMenu.getTeamKey(player, session);
+            UUID bedOwner = session.getMode() == GameModeType.TEAMS
+                    ? session.getTeamBedOwner(session.getPlayerTeam(uuid))
+                    : uuid;
+            if (bedOwner == null) continue;
+            BlockPos bedPos = session.getPlayerBed(bedOwner);
+            if (bedPos == null) continue;
+
+            double distToBed = player.blockPosition().distSqr(bedPos);
+
+            // Healing Station
+            int healTier = mgr.getTier(team, BedUpgradeManager.UpgradeType.HEALING_STATION);
+            if (healTier > 0) {
+                boolean inRange = switch (healTier) {
+                    case 1 -> distToBed <= 10 * 10;
+                    case 2 -> distToBed <= 30 * 30;
+                    case 3 -> distToBed <= 10 * 10;
+                    case 4 -> distToBed <= 20 * 20;
+                    case 5, 6 -> true; // permanent
+                    default -> false;
+                };
+                int amplifier = (healTier >= 3 && healTier <= 4) ? 1 : // Regen II tiers
+                        (healTier >= 5) ? (healTier == 6 ? 0 : 1) : 0;
+                if (inRange) {
+                    player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+                            net.minecraft.world.effect.MobEffects.REGENERATION, 40, amplifier, false, false));
+                }
+            }
+
+            // Check enemies near bed (for traps)
+            for (UUID enemyUuid : session.getPlayers()) {
+                if (session.isEliminated(enemyUuid)) continue;
+                if (enemyUuid.equals(uuid)) continue;
+                // Skip teammates
+                if (session.getMode() == GameModeType.TEAMS) {
+                    String myTeam = session.getPlayerTeam(uuid);
+                    String enemyTeam = session.getPlayerTeam(enemyUuid);
+                    if (myTeam != null && myTeam.equals(enemyTeam)) continue;
+                }
+                ServerPlayer enemy = server.getPlayerList().getPlayer(enemyUuid);
+                if (enemy == null) continue;
+                double enemyDistToBed = enemy.blockPosition().distSqr(bedPos);
+
+                // Mining Fatigue Trap
+                int mfTier = mgr.getTier(team, BedUpgradeManager.UpgradeType.MINING_FATIGUE);
+                if (mfTier > 0 && enemyDistToBed <= 3 * 3) {
+                    // T6 check: only if owner is within 10 blocks
+                    if (mfTier == 6 && distToBed > 10 * 10) {
+                        // owner is far — T6 always-on requires owner nearby
+                    } else {
+                        int[] mfDuration = {0, 40, 80, 120, 160, 120, Integer.MAX_VALUE};
+                        int[] mfLevel    = {1,  1,  2,   2,   2,   3,  2};
+                        enemy.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+                                net.minecraft.world.effect.MobEffects.DIG_SLOWDOWN,
+                                mfDuration[mfTier], mfLevel[mfTier], false, true));
+                        // Reset to T1 after trigger (except T6 which is permanent)
+                        if (mfTier < 6) mgr.setTier(team, BedUpgradeManager.UpgradeType.MINING_FATIGUE, 1);
+                    }
+                }
+
+                // Slowness Trap
+                int slowTier = mgr.getTier(team, BedUpgradeManager.UpgradeType.SLOWNESS);
+                if (slowTier > 0 && enemyDistToBed <= 5 * 5) {
+                    enemy.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+                            net.minecraft.world.effect.MobEffects.MOVEMENT_SLOWDOWN, 40, 0, false, true));
+                }
+
+                // Alarm
+                int alarmTier = mgr.getTier(team, BedUpgradeManager.UpgradeType.ALARM);
+                if (alarmTier > 0 && enemyDistToBed <= 10 * 10) {
+                    ServerPlayer owner = server.getPlayerList().getPlayer(bedOwner);
+                    if (owner != null) {
+                        for (int n = 0; n < 5; n++) {
+                            SoundHelper.playNoteClick(owner, SoundHelper.noteToPitch(22));
+                        }
+                        owner.sendSystemMessage(Component.literal("§c[NOTICE] §fA player is near your bed!"));
+                    }
+                    mgr.setTier(team, BedUpgradeManager.UpgradeType.ALARM, 0);
+                }
+            }
+
+            // Bed Sense (offensive, alert player near enemy beds)
+            int bedSenseTier = mgr.getTier(team, BedUpgradeManager.UpgradeType.BED_SENSE);
+            if (bedSenseTier > 0) {
+                for (UUID enemyUuid : session.getPlayers()) {
+                    if (session.isEliminated(enemyUuid)) continue;
+                    if (session.getMode() == GameModeType.TEAMS) {
+                        String myTeam = session.getPlayerTeam(uuid);
+                        String enemyTeam = session.getPlayerTeam(enemyUuid);
+                        if (myTeam != null && myTeam.equals(enemyTeam)) continue;
+                    }
+                    BlockPos enemyBed = session.getPlayerBed(enemyUuid);
+                    if (enemyBed == null) continue;
+                    double distToEnemyBed = player.blockPosition().distSqr(enemyBed);
+                    if (distToEnemyBed <= 5 * 5) {
+                        SoundHelper.playNoteClick(player, SoundHelper.noteToPitch(22));
+                        player.sendSystemMessage(Component.literal("§e[NOTICE] §fYou are near someone's bed!"));
+                        mgr.setTier(team, BedUpgradeManager.UpgradeType.BED_SENSE, 0);
+                        break;
+                    }
+                }
+            }
         }
     }
 

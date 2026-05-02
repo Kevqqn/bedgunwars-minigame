@@ -22,6 +22,10 @@ public class TeamManager {
             session.setPlayerTeam(uuid, teamName);
             teams.get(teamIndex).add(uuid);
         }
+        // Init bed upgrades for each team
+        for (int i = 0; i < teamCount; i++) {
+            session.getBedUpgradeManager().initTeam("Team " + (i + 1));
+        }
 
         // Assign one random bed owner per team
         Random random = new Random();

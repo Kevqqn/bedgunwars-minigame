@@ -14,12 +14,13 @@ import net.minecraft.world.scores.criteria.ObjectiveCriteria;
 import com.frosty.bedgunwars.game.TeamManager;
 import com.frosty.bedgunwars.game.GameModeType;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.Map;
+import java.util.HashMap;
 
 public class GameScoreboard {
 
+    private static final Set<UUID> initialized = new HashSet<>();
     private static final String OBJ_NAME = "bedgunwars";
 
     public static void update(GameSession session) {
@@ -30,23 +31,52 @@ public class GameScoreboard {
         }
     }
 
+    public static void reinitPlayer(UUID uuid) {
+        initialized.remove(uuid);
+        lastLines.remove(uuid);
+    }
+
+    private static final Map<UUID, List<String>> lastLines = new HashMap<>();
+
     private static void apply(ServerPlayer player, GameSession session) {
         List<String> lines = buildLines(player, session);
         Objective obj = buildDummyObjective();
+        UUID uuid = player.getUUID();
 
-        player.connection.send(new ClientboundSetObjectivePacket(obj, ClientboundSetObjectivePacket.METHOD_REMOVE));
-        player.connection.send(new ClientboundSetObjectivePacket(obj, ClientboundSetObjectivePacket.METHOD_ADD));
-        player.connection.send(new ClientboundSetDisplayObjectivePacket(Scoreboard.DISPLAY_SLOT_SIDEBAR, obj));
+        if (!initialized.contains(uuid)) {
+            player.connection.send(new ClientboundSetObjectivePacket(obj, ClientboundSetObjectivePacket.METHOD_ADD));
+            player.connection.send(new ClientboundSetDisplayObjectivePacket(Scoreboard.DISPLAY_SLOT_SIDEBAR, obj));
+            initialized.add(uuid);
+            lastLines.put(uuid, new ArrayList<>());
+        }
+
+        List<String> prev = lastLines.getOrDefault(uuid, new ArrayList<>());
+
+        if (prev.size() > lines.size()) {
+            for (int i = lines.size(); i < prev.size(); i++) {
+                player.connection.send(new ClientboundSetScorePacket(
+                        net.minecraft.server.ServerScoreboard.Method.REMOVE,
+                        OBJ_NAME, prev.get(i), 0));
+            }
+        }
 
         for (int i = 0; i < lines.size(); i++) {
-            int score = lines.size() - i;
-            player.connection.send(new ClientboundSetScorePacket(
-                    net.minecraft.server.ServerScoreboard.Method.CHANGE,
-                    OBJ_NAME,
-                    lines.get(i),
-                    score
-            ));
+            String line = lines.get(i);
+            if (i >= prev.size() || !line.equals(prev.get(i))) {
+                // Remove old entry at this position if it existed
+                if (i < prev.size() && !prev.get(i).isEmpty()) {
+                    player.connection.send(new ClientboundSetScorePacket(
+                            net.minecraft.server.ServerScoreboard.Method.REMOVE,
+                            OBJ_NAME, prev.get(i), 0));
+                }
+                int score = lines.size() - i;
+                player.connection.send(new ClientboundSetScorePacket(
+                        net.minecraft.server.ServerScoreboard.Method.CHANGE,
+                        OBJ_NAME, line, score));
+            }
         }
+
+        lastLines.put(uuid, new ArrayList<>(lines));
     }
 
     private static List<String> buildLines(ServerPlayer player, GameSession session) {
@@ -144,6 +174,7 @@ public class GameScoreboard {
                     : "§7Not placed";
         }
         lines.add("§eBed: " + bedStatus);
+        lines.add("§eMoney: §a$" + session.getMoney(uuid));
 
 
         lines.add("§7§m----------");
@@ -153,6 +184,8 @@ public class GameScoreboard {
 
     public static void remove(MinecraftServer server) {
         Objective obj = buildDummyObjective();
+        initialized.clear();
+        lastLines.clear();
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             player.connection.send(new ClientboundSetObjectivePacket(obj, ClientboundSetObjectivePacket.METHOD_REMOVE));
         }

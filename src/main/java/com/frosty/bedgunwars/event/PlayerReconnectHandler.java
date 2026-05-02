@@ -12,9 +12,6 @@ import com.frosty.bedgunwars.game.GamePhase;
 import com.frosty.bedgunwars.game.WinManager;
 import com.frosty.bedgunwars.ui.GameScoreboard;
 
-import net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket;
-import java.util.List;
-
 import java.util.UUID;
 
 @Mod.EventBusSubscriber
@@ -28,21 +25,28 @@ public class PlayerReconnectHandler {
         UUID uuid = player.getUUID();
         GamePhase phase = session.getPhase();
 
+        // Host reconnecting
+        if (uuid.equals(session.getHostUuid()) && session.isHostDisconnected()) {
+            session.clearHostDisconnectTimer();
+            player.sendSystemMessage(Component.literal("§aYou reconnected as host. Game continues."));
+            GameScoreboard.reinitPlayer(uuid);
+            GameScoreboard.update(session);
+            return;
+        }
+
         if (!session.getPlayers().contains(uuid)) return;
+        session.markOnline(uuid);
 
         if (phase == GamePhase.PREPARATION) {
-            // Hide this reconnecting player from all other prep players
-            for (UUID otherUuid : session.getPlayers()) {
-                if (otherUuid.equals(uuid)) continue;
-                ServerPlayer other = player.getServer().getPlayerList().getPlayer(otherUuid);
-                if (other == null) continue;
-                // Hide reconnecting player from others
-                other.connection.send(new ClientboundPlayerInfoRemovePacket(List.of(uuid)));
-                // Hide others from reconnecting player
-                player.connection.send(new ClientboundPlayerInfoRemovePacket(List.of(otherUuid)));
-            }
-            player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
-            player.sendSystemMessage(Component.literal("You reconnected. Game starts soon."));
+            session.getDisconnectedDuringPrep().remove(uuid);
+
+            player.setGameMode(GameType.SURVIVAL);
+            giveStarterItems(player, session);
+
+            GameScoreboard.reinitPlayer(uuid);
+            GameScoreboard.update(session);
+
+            player.sendSystemMessage(Component.literal("§aYou reconnected. Game is in preparation phase."));
             return;
         }
 
@@ -52,7 +56,6 @@ public class PlayerReconnectHandler {
             GameScoreboard.update(session);
             return;
         }
-
         if (phase == GamePhase.ACTIVE) {
             if (session.isBedBroken(uuid)) {
                 session.eliminatePlayer(uuid);
@@ -64,6 +67,46 @@ public class PlayerReconnectHandler {
             player.setGameMode(GameType.SURVIVAL);
             player.sendSystemMessage(Component.literal("You reconnected and are still in the match."));
             GameScoreboard.update(session);
+            GameScoreboard.reinitPlayer(player.getUUID());
+        }
+        if (phase == GamePhase.ENDING) {
+            if (session.isEliminated(uuid)) {
+                player.setGameMode(GameType.SPECTATOR);
+            } else {
+                player.setGameMode(GameType.SURVIVAL);
+            }
+            player.sendSystemMessage(Component.literal("§cYou reconnected during Endgame."));
+            GameScoreboard.reinitPlayer(uuid);
+            GameScoreboard.update(session);
         }
     }
+    private static void giveStarterItems(ServerPlayer player, GameSession session) {
+        UUID uuid = player.getUUID();
+
+        // Only give bed if player hasn't placed one yet
+        if (!session.hasPlacedBed(uuid)) {
+            player.getInventory().setItem(0, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.RED_BED, 1));
+        }
+
+        // Always restore these if missing
+        if (player.getInventory().getItem(1).isEmpty())
+            player.getInventory().setItem(1, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.GOLDEN_APPLE, 1));
+        if (player.getInventory().getItem(2).isEmpty())
+            player.getInventory().setItem(2, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.WOODEN_PICKAXE, 1));
+        if (player.getInventory().getItem(3).isEmpty())
+            player.getInventory().setItem(3, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.STONE, 64));
+
+        // Always restore armor if missing
+        if (player.getInventory().armor.get(3).isEmpty())
+            player.getInventory().armor.set(3, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.NETHERITE_HELMET));
+        if (player.getInventory().armor.get(2).isEmpty())
+            player.getInventory().armor.set(2, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.NETHERITE_CHESTPLATE));
+        if (player.getInventory().armor.get(1).isEmpty())
+            player.getInventory().armor.set(1, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.NETHERITE_LEGGINGS));
+        if (player.getInventory().armor.get(0).isEmpty())
+            player.getInventory().armor.set(0, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.NETHERITE_BOOTS));
+
+        player.containerMenu.broadcastChanges();
+    }
 }
+
