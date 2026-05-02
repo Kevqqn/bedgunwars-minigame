@@ -191,6 +191,13 @@ public class GameSession {
 
     private final Set<UUID> warnedPlayers = new HashSet<>();
 
+    // Spawn immunity
+    private final Set<UUID> spawnImmunePlayers = new HashSet<>();
+
+    public void markSpawnImmune(UUID uuid) { spawnImmunePlayers.add(uuid); }
+    public void clearSpawnImmune(UUID uuid) { spawnImmunePlayers.remove(uuid); }
+    public boolean isSpawnImmune(UUID uuid) { return spawnImmunePlayers.contains(uuid); }
+
     // Teams
     public Map<UUID, String> getPlayerTeams() { return playerTeams; }
     public void setPlayerTeam(UUID uuid, String teamName) { playerTeams.put(uuid, teamName); }
@@ -329,6 +336,11 @@ public class GameSession {
         }
     }
 
+    // Minimap client and serverside
+    private boolean minimapStartSent = false;
+    public boolean isMinimapStartSent() { return minimapStartSent; }
+    public void setMinimapStartSent(boolean v) { minimapStartSent = v; }
+
     public void resetMatchState() {
         players.clear();
         playerTeams.clear();
@@ -347,6 +359,8 @@ public class GameSession {
         warnedPlayers.clear();
         playerMoney.clear();
         bedUpgradeManager.clear();
+        spawnImmunePlayers.clear();
+        minimapStartSent = false;
     }
 
     public void hideAllNametags(MinecraftServer server) {

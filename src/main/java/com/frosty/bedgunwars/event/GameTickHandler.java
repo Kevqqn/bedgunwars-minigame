@@ -1,6 +1,7 @@
 package com.frosty.bedgunwars.event;
 
 import com.frosty.bedgunwars.game.*;
+import com.frosty.bedgunwars.network.PacketHandler;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -71,6 +72,18 @@ public class GameTickHandler {
         }
 
         if (phase == GamePhase.PREPARATION) {
+            if (!session.isMinimapStartSent()) {
+                session.setMinimapStartSent(true);
+                com.frosty.bedgunwars.network.MinimapStartPacket pkt = new com.frosty.bedgunwars.network.MinimapStartPacket(
+                        session.getBeaconPos().getX(),
+                        session.getBeaconPos().getZ(),
+                        session.getBorderRadius()
+                );
+                for (java.util.UUID uuid : session.getPlayers()) {
+                    net.minecraft.server.level.ServerPlayer p = event.getServer().getPlayerList().getPlayer(uuid);
+                    if (p != null) PacketHandler.CHANNEL.send(net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> p), pkt);
+                }
+            }
             applyPrepEffects(event.getServer(), session);
             session.hideAllNametags(event.getServer());
             int ticksLeft = session.getPrepTimeTicks();

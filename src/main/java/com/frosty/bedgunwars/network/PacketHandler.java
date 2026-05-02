@@ -27,6 +27,10 @@ public class PacketHandler {
                 SelectAttachmentPacket::encode, SelectAttachmentPacket::decode, SelectAttachmentPacket::handle);
         CHANNEL.registerMessage(id++, SelectThrowablePacket.class,
                 SelectThrowablePacket::encode, SelectThrowablePacket::decode, SelectThrowablePacket::handle);
+        CHANNEL.registerMessage(id++, MinimapStartPacket.class,
+                MinimapStartPacket::encode, MinimapStartPacket::decode, MinimapStartPacket::handle);
+        CHANNEL.registerMessage(id++, MinimapStopPacket.class,
+                MinimapStopPacket::encode, MinimapStopPacket::decode, MinimapStopPacket::handle);
     }
 
     public static void sendToClient(net.minecraft.server.level.ServerPlayer player, Object packet) {

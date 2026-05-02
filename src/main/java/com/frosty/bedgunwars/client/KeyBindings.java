@@ -18,4 +18,12 @@ public class KeyBindings {
             GLFW.GLFW_KEY_B,
             "key.categories.bedgunwars"
     );
+
+    public static final KeyMapping MINIMAP_SETTINGS_KEY = new KeyMapping(
+            "key.bedgunwars.minimap_settings",
+            KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_M,
+            "key.categories.bedgunwars"
+    );
 }

@@ -10,6 +10,9 @@ import com.frosty.bedgunwars.game.GameManager;
 import com.frosty.bedgunwars.game.GameModeType;
 import com.frosty.bedgunwars.game.GamePhase;
 import com.frosty.bedgunwars.game.GameSession;
+import com.frosty.bedgunwars.minimap.MinimapConfig;
+import com.frosty.bedgunwars.minimap.MinimapRenderer;
+import com.frosty.bedgunwars.minimap.MinimapSettingsScreen;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -30,11 +33,15 @@ import java.util.UUID;
 public class BedGunWars {
     public static final String MOD_ID = "bedgunwars";
 
-    public BedGunWars() {
+    public BedGunWars(net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext context) {
         MinecraftForge.EVENT_BUS.register(this);
         MinecraftForge.EVENT_BUS.register(new GameTickHandler());
         MinecraftForge.EVENT_BUS.register(new BedEventHandler());
         MinecraftForge.EVENT_BUS.register(new PlayerDeathHandler());
+        if (net.minecraftforge.fml.loading.FMLEnvironment.dist.isClient()) {
+            MinecraftForge.EVENT_BUS.register(new MinimapRenderer());
+        }
+        MinimapConfig.register(context);
         PacketHandler.register();
         System.out.println("BedGunWars Loaded");
     }
@@ -50,6 +57,11 @@ public class BedGunWars {
                 if (mc.player == null || mc.screen != null) return;
                 PacketHandler.CHANNEL.sendToServer(new com.frosty.bedgunwars.network.RequestGunMenuPacket());
             }
+            if (KeyBindings.MINIMAP_SETTINGS_KEY.consumeClick()) {
+                net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+                if (mc.player == null || mc.screen != null) return;
+                mc.setScreen(new MinimapSettingsScreen());
+            }
         }
     }
 
@@ -58,6 +70,7 @@ public class BedGunWars {
         @SubscribeEvent
         public static void onRegisterKeyMappings(net.minecraftforge.client.event.RegisterKeyMappingsEvent event) {
             event.register(KeyBindings.GUN_MENU_KEY);
+            event.register(KeyBindings.MINIMAP_SETTINGS_KEY);
         }
     }
 

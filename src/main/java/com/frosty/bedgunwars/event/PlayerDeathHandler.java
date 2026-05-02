@@ -94,6 +94,15 @@ public class PlayerDeathHandler {
         GameSession session = GameManager.getSession();
         if (session == null || !session.isActive()) return;
         if (session.getPhase() == GamePhase.PREPARATION) { event.setCanceled(true); return; }
+
+        // Drop spawn immunity from the attacker the moment they deal damage
+        if (event.getSource().getEntity() instanceof ServerPlayer attacker) {
+            if (session.isSpawnImmune(attacker.getUUID())) {
+                session.clearSpawnImmune(attacker.getUUID());
+                attacker.removeEffect(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE);
+                sendNotice(attacker, "Spawn immunity dropped!");
+            }
+        }
         if (session.isFriendlyFire()) return;
         if (session.getMode() == GameModeType.SOLO) return;
         if (!(event.getSource().getEntity() instanceof ServerPlayer attacker)) return;
@@ -146,7 +155,11 @@ public class PlayerDeathHandler {
             }
             p.setHealth(p.getMaxHealth());
             p.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
-            sendNotice(p, "Respawned!");
+            // gives 5-second spawn immunity — drops immediately on dealing damage
+            p.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+                    net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 100, 4, false, false, false));
+            session.markSpawnImmune(uuid);
+            sendNotice(p, "Respawned! §7(Immune for §e5s§7 — drops on attack)");
         });
     }
 

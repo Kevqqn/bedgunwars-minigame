@@ -248,4 +248,12 @@ public class BedEventHandler {
         session.getBedUpgradeManager().setTier(team, BedUpgradeManager.UpgradeType.TP_TO_BED, 0);
         event.setCanceled(true);
     }
+    @SubscribeEvent
+    public void onSleepInBed(net.minecraftforge.event.entity.player.PlayerSleepInBedEvent event) {
+        if (!GameManager.hasGame()) return;
+        GameSession session = GameManager.getSession();
+        if (session == null || !session.isActive()) return;
+        if (session.getPhase() != GamePhase.PREPARATION && session.getPhase() != GamePhase.ACTIVE) return;
+        event.setResult(net.minecraft.world.entity.player.Player.BedSleepingProblem.OTHER_PROBLEM);
+    }
 }
