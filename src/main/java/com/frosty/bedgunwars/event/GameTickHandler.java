@@ -197,13 +197,8 @@ public class GameTickHandler {
                 .toList();
 
         for (ServerPlayer target : onlinePlayers) {
-            for (ServerPlayer viewer : onlinePlayers) {
-                if (viewer.getUUID().equals(target.getUUID())) continue;
-                // Remove target from viewer's client
-                viewer.connection.send(new ClientboundPlayerInfoRemovePacket(List.of(target.getUUID())));
-            }
-            // Keep damage resistance — no invisibility effect needed
             target.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 60, 4, false, false));
+            target.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 60, 0, false, false));
         }
     }
 
@@ -215,18 +210,8 @@ public class GameTickHandler {
                 .toList();
 
         for (ServerPlayer target : onlinePlayers) {
-            for (ServerPlayer viewer : onlinePlayers) {
-                if (viewer.getUUID().equals(target.getUUID())) continue;
-                // Re-add target to viewer's client
-                viewer.connection.send(ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(target)));
-                viewer.connection.send(new ClientboundAddEntityPacket(target));
-                // Sync entity data (skin, held item, etc.)
-                var entityData = target.getEntityData().getNonDefaultValues();
-                if (entityData != null && !entityData.isEmpty()) {
-                    viewer.connection.send(new ClientboundSetEntityDataPacket(target.getId(), entityData));
-                }
-            }
             target.removeEffect(MobEffects.DAMAGE_RESISTANCE);
+            target.removeEffect(MobEffects.INVISIBILITY);
         }
     }
 

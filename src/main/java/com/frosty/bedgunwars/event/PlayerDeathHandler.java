@@ -1,17 +1,11 @@
 package com.frosty.bedgunwars.event;
 
-import com.frosty.bedgunwars.game.GameManager;
-import com.frosty.bedgunwars.game.GamePhase;
-import com.frosty.bedgunwars.game.GameSession;
-import com.frosty.bedgunwars.game.WinManager;
+import com.frosty.bedgunwars.game.*;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
-import com.frosty.bedgunwars.game.SoundHelper;
-import com.frosty.bedgunwars.game.TeamManager;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
-import com.frosty.bedgunwars.game.GameModeType;
 import com.frosty.bedgunwars.event.GameTickHandler;
 import net.minecraft.world.level.GameType;
 import net.minecraft.server.MinecraftServer;
@@ -149,7 +143,7 @@ public class PlayerDeathHandler {
             // Find respawn position near bed
             net.minecraft.core.BlockPos bedPos = getRespawnPos(session, uuid);
             if (bedPos != null) {
-                p.teleportTo(p.serverLevel(),
+                p.teleportTo(session.getLevel(),
                         bedPos.getX() + 0.5, bedPos.getY() + 0.1, bedPos.getZ() + 0.5,
                         p.getYRot(), p.getXRot());
             }
@@ -159,6 +153,7 @@ public class PlayerDeathHandler {
             p.addEffect(new net.minecraft.world.effect.MobEffectInstance(
                     net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 100, 4, false, false, false));
             session.markSpawnImmune(uuid);
+            GunHelper.reloadAllGuns(p, session.getGunSelectionManager());
             sendNotice(p, "Respawned! §7(Immune for §e5s§7 — drops on attack)");
         });
     }

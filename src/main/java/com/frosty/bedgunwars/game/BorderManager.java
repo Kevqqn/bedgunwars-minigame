@@ -16,6 +16,13 @@ public class BorderManager {
 
         border.setCenter(centerX, centerZ);
         border.setSize(size);
+
+        // Manually sync border to all players in this dimension
+        net.minecraft.network.protocol.game.ClientboundInitializeBorderPacket packet =
+                new net.minecraft.network.protocol.game.ClientboundInitializeBorderPacket(border);
+        for (net.minecraft.server.level.ServerPlayer p : level.players()) {
+            p.connection.send(packet);
+        }
     }
 
     public static void restoreBorder(GameSession session) {
@@ -23,8 +30,15 @@ public class BorderManager {
             return;
         }
 
-        WorldBorder border = session.getLevel().getWorldBorder();
+        ServerLevel level = session.getLevel();
+        WorldBorder border = level.getWorldBorder();
         border.setCenter(session.getOriginalBorderCenterX(), session.getOriginalBorderCenterZ());
         border.setSize(session.getOriginalBorderSize());
+
+        net.minecraft.network.protocol.game.ClientboundInitializeBorderPacket packet =
+                new net.minecraft.network.protocol.game.ClientboundInitializeBorderPacket(border);
+        for (net.minecraft.server.level.ServerPlayer p : level.players()) {
+            p.connection.send(packet);
+        }
     }
 }

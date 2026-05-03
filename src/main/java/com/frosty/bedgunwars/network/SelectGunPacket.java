@@ -64,9 +64,32 @@ public class SelectGunPacket {
             gsm.setGunSelections(uuid, validated);
 
             removeGunsFromInventory(player);
-            for (ResourceLocation id : validated) {
+            for (int i = 0; i < validated.size(); i++) {
+                ResourceLocation id = validated.get(i);
                 ItemStack stack = GunHelper.buildGun(id);
-                if (!stack.isEmpty()) player.getInventory().add(stack);
+                if (stack.isEmpty()) continue;
+
+                // Re-apply stored attachments to the freshly built gun
+                if (stack.getItem() instanceof IGun iGun) {
+                    java.util.Map<com.tacz.guns.api.item.attachment.AttachmentType, ResourceLocation> saved =
+                            gsm.getGunAttachments(uuid, i);
+                    for (var entry : saved.entrySet()) {
+                        try {
+                            ItemStack attachStack = com.tacz.guns.api.item.builder.AttachmentItemBuilder
+                                    .create().setId(entry.getValue()).build();
+                            if (!attachStack.isEmpty() && iGun.allowAttachment(stack, attachStack)) {
+                                iGun.installAttachment(stack, attachStack);
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                    // Restore full ammo after attachments are applied
+                    com.tacz.guns.api.TimelessAPI.getCommonGunIndex(id).ifPresent(index -> {
+                        int maxAmmo = index.getGunData().getAmmoAmount();
+                        if (maxAmmo > 0) iGun.setCurrentAmmoCount(stack, maxAmmo);
+                    });
+                }
+
+                player.getInventory().add(stack);
             }
             player.containerMenu.broadcastChanges();
 

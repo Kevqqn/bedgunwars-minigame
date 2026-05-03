@@ -424,9 +424,17 @@ public class GunSelectionScreen extends Screen {
         }
 
         int numCols = Math.min(visibleTypes.size(), 3); // max 3 per row
-        int numRows = (visibleTypes.size() + 2) / 3;    // 1 or 2 rows
+        int numRows = Math.max(1, (visibleTypes.size() + 2) / 3);
 
-        // Available area: from LIST_X to start of loadout panel
+        // fix stupid crash on guns attachment not available
+        if (numCols == 0) {
+            g.drawCenteredString(font, "§7No attachments available for this gun.",
+                    LIST_X + (this.width - PANEL_W - 16 - LIST_X) / 2,
+                    LIST_Y + 40, 0xFFFFFF);
+            return;
+        }
+
+        // from LIST_X to start of loadout panel
         int areaW = this.width - PANEL_W - 16 - LIST_X;
         int areaH = (this.height - LIST_Y - 40) / numRows;
         int colW = (areaW - (numCols - 1) * 6) / numCols;

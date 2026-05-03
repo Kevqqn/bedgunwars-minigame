@@ -3,12 +3,14 @@ package com.frosty.bedgunwars.game;
 import com.tacz.guns.api.item.builder.GunItemBuilder;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraftforge.registries.ForgeRegistries;
 import java.util.Comparator;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.UUID;
 
 public class GunHelper {
 
@@ -19,10 +21,16 @@ public class GunHelper {
 
             if (stack.getItem() instanceof com.tacz.guns.api.item.IGun iGun) {
                 com.tacz.guns.api.TimelessAPI.getCommonGunIndex(gunId).ifPresent(index -> {
+                    // Set fire mode
                     java.util.List<com.tacz.guns.api.item.gun.FireMode> modes =
                             index.getGunData().getFireModeSet();
                     if (modes != null && !modes.isEmpty()) {
                         iGun.setFireMode(stack, modes.get(0));
+                    }
+                    // Pre-load magazine so player can shoot immediately
+                    int maxAmmo = index.getGunData().getAmmoAmount();
+                    if (maxAmmo > 0) {
+                        iGun.setCurrentAmmoCount(stack, maxAmmo);
                     }
                 });
             }
@@ -91,6 +99,21 @@ public class GunHelper {
             case "MG"      -> "LMG";
             default        -> "Rifle";
         };
+    }
+
+    public static void reloadAllGuns(ServerPlayer player, GunSelectionManager gsm) {
+        UUID uuid = player.getUUID();
+        java.util.List<ResourceLocation> guns = gsm.getGunSelections(uuid);
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            ItemStack stack = player.getInventory().getItem(i);
+            if (stack.isEmpty() || !(stack.getItem() instanceof com.tacz.guns.api.item.IGun iGun)) continue;
+            ResourceLocation gunId = iGun.getGunId(stack);
+            if (gunId == null) continue;
+            com.tacz.guns.api.TimelessAPI.getCommonGunIndex(gunId).ifPresent(index -> {
+                int maxAmmo = index.getGunData().getAmmoAmount();
+                if (maxAmmo > 0) iGun.setCurrentAmmoCount(stack, maxAmmo);
+            });
+        }
     }
 
 // Unused
