@@ -29,7 +29,7 @@ public class MinimapTexture {
     private final Set<ChunkPos> pendingComposite = ConcurrentHashMap.newKeySet();
 
     public void init(int beaconX, int beaconZ, int radius) {
-        BedGunWars.LOGGER.info("[Minimap] init called: beaconX={} beaconZ={} radius={}", beaconX, beaconZ, radius);
+        BedGunWars.debugLog("[Minimap] init called: beaconX={} beaconZ={} radius={}", beaconX, beaconZ, radius);
         // Dispose GL resources but keep pendingComposite intact
         initialized = false;
         if (texture != null) {
@@ -57,7 +57,7 @@ public class MinimapTexture {
                 .getTextureManager().register("bgw_minimap", texture);
         initialized = true;
 
-        BedGunWars.LOGGER.info("[Minimap] texture initialized: texSize={}, origin=({},{})",
+        BedGunWars.debugLog("[Minimap] texture initialized: texSize={}, origin=({},{})",
                 texSize, originX, originZ);
     }
 
@@ -82,7 +82,7 @@ public class MinimapTexture {
 
     /** Called from render thread each frame */
     public void update(MinimapChunkScanner scanner) {
-        BedGunWars.LOGGER.info("[Minimap] update called: pending={}, initialized={}",
+        BedGunWars.debugLog("[Minimap] update called: pending={}, initialized={}",
                 pendingComposite.size(), initialized);
         if (!initialized || texture == null) return;
         NativeImage img = texture.getPixels();
@@ -92,7 +92,7 @@ public class MinimapTexture {
         List<ChunkPos> toProcess = new ArrayList<>(pendingComposite);
         pendingComposite.removeAll(toProcess);
         if (!toProcess.isEmpty()) {
-            BedGunWars.LOGGER.info("[Minimap] update: processing {} chunks", toProcess.size());
+            BedGunWars.debugLog("[Minimap] update: processing {} chunks", toProcess.size());
         }
 
         boolean changed = false;
@@ -103,7 +103,7 @@ public class MinimapTexture {
             changed = true;
         }
         if (changed) {
-            BedGunWars.LOGGER.info("[Minimap] upload: blitted {} chunks", toProcess.size());
+            BedGunWars.debugLog("[Minimap] upload: blitted {} chunks", toProcess.size());
             texture.upload();
         }
 

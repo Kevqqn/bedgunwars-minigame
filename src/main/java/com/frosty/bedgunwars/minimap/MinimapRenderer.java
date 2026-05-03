@@ -204,7 +204,7 @@ public class MinimapRenderer {
         debugLogCooldown--;
         if (debugLogCooldown <= 0) {
             debugLogCooldown = 100;
-            BedGunWars.LOGGER.info("[Minimap] feed: enqueued={}, cached={}, notLoaded={} | cacheSize={} | pendingComposite={}",
+            BedGunWars.debugLog("[Minimap] feed: enqueued={}, cached={}, notLoaded={} | cacheSize={} | pendingComposite={}",
                     enqueued, alreadyCached, notLoaded,
                     SCANNER.colorCache.size(),
                     TEXTURE.getPendingCount());

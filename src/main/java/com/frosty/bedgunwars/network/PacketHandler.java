@@ -31,6 +31,10 @@ public class PacketHandler {
                 MinimapStartPacket::encode, MinimapStartPacket::decode, MinimapStartPacket::handle);
         CHANNEL.registerMessage(id++, MinimapStopPacket.class,
                 MinimapStopPacket::encode, MinimapStopPacket::decode, MinimapStopPacket::handle);
+        CHANNEL.registerMessage(id++, MinimapStopPacket.class,
+                MinimapStopPacket::encode, MinimapStopPacket::decode, MinimapStopPacket::handle);
+        CHANNEL.registerMessage(id++, TabStatsPacket.class,
+                TabStatsPacket::encode, TabStatsPacket::decode, TabStatsPacket::handle);
     }
 
     public static void sendToClient(net.minecraft.server.level.ServerPlayer player, Object packet) {

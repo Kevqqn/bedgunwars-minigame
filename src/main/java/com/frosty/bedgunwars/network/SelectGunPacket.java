@@ -53,11 +53,22 @@ public class SelectGunPacket {
                 if (validated.size() >= gsm.getMaxGunSlots()) break;
             }
 
-            // Clear attachments for any gun slots that changed
+            // Clear attachments and remove ammo for deselected guns
             List<ResourceLocation> oldGuns = gsm.getGunSelections(uuid);
             for (int i = 0; i < oldGuns.size(); i++) {
                 if (i >= validated.size() || !oldGuns.get(i).equals(validated.get(i))) {
                     gsm.clearGunAttachments(uuid, i);
+                    // Remove ammo for this gun if no other selected gun uses the same ammo type
+                    ResourceLocation oldGunId = oldGuns.get(i);
+                    ResourceLocation oldAmmoId = GunHelper.getAmmoId(oldGunId);
+                    if (oldAmmoId != null) {
+                        boolean stillNeeded = false;
+                        for (ResourceLocation newGunId : validated) {
+                            ResourceLocation newAmmoId = GunHelper.getAmmoId(newGunId);
+                            if (oldAmmoId.equals(newAmmoId)) { stillNeeded = true; break; }
+                        }
+                        if (!stillNeeded) GunHelper.removeAmmo(player, oldAmmoId);
+                    }
                 }
             }
 
@@ -68,9 +79,7 @@ public class SelectGunPacket {
                 ResourceLocation id = validated.get(i);
                 ItemStack stack = GunHelper.buildGun(id);
                 if (stack.isEmpty()) continue;
-
-                // Re-apply stored attachments to the freshly built gun
-                if (stack.getItem() instanceof IGun iGun) {
+                if (stack.getItem() instanceof com.tacz.guns.api.item.IGun iGun) {
                     java.util.Map<com.tacz.guns.api.item.attachment.AttachmentType, ResourceLocation> saved =
                             gsm.getGunAttachments(uuid, i);
                     for (var entry : saved.entrySet()) {
@@ -82,15 +91,19 @@ public class SelectGunPacket {
                             }
                         } catch (Exception ignored) {}
                     }
-                    // Restore full ammo after attachments are applied
                     com.tacz.guns.api.TimelessAPI.getCommonGunIndex(id).ifPresent(index -> {
                         int maxAmmo = index.getGunData().getAmmoAmount();
                         if (maxAmmo > 0) iGun.setCurrentAmmoCount(stack, maxAmmo);
                     });
                 }
-
                 player.getInventory().add(stack);
             }
+
+            // Remove all existing ammo for previously selected guns
+            GunHelper.removeAllGunAmmo(player, oldGuns);
+            // Give fresh ammo reserves for new selection only
+            GunHelper.giveAmmoReserves(player, validated, false);
+
             player.containerMenu.broadcastChanges();
 
             // Resend updated menu with new compatible attachments

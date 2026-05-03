@@ -51,15 +51,14 @@ public class GameDebugCommand {
 
     public static int listTaczItems(CommandSourceStack source) {
         int count = 0;
-        for (var entry : net.minecraftforge.registries.ForgeRegistries.ITEMS.getEntries()) {
-            if (entry.getKey().location().getNamespace().equals("tacz")) {
-                com.frosty.bedgunwars.BedGunWars.LOGGER.info("TACZ item: {}", entry.getKey().location());
-                count++;
-            }
+        for (var entry : com.tacz.guns.api.TimelessAPI.getAllCommonGunIndex()) {
+            String displayName = com.frosty.bedgunwars.game.GunHelper.getGunDisplayName(entry.getKey());
+            com.frosty.bedgunwars.BedGunWars.LOGGER.info("TACZ gun: {} | {}", entry.getKey(), displayName);
+            count++;
         }
         int finalCount = count;
         source.sendSuccess(() -> net.minecraft.network.chat.Component.literal(
-                "Logged " + finalCount + " TACZ items to the server log."), false);
+                "Logged " + finalCount + " TACZ gun IDs to the server log."), false);
         return 1;
     }
 
@@ -242,6 +241,14 @@ public class GameDebugCommand {
             p.sendSystemMessage(Component.literal(message));
         }
     }
+
+    public static int setDebugLogging(CommandSourceStack source, int enabled) {
+        com.frosty.bedgunwars.BedGunWars.debugLogging = enabled == 1;
+        source.sendSuccess(() -> Component.literal(
+                "Debug logging " + (com.frosty.bedgunwars.BedGunWars.debugLogging ? "§aenabled" : "§cdisabled")), false);
+        return 1;
+    }
+
     public static int giveMoney(CommandSourceStack source, String targetName, int amount) {
         GameSession session = GameManager.getSession();
         if (session == null || !session.isActive()) {

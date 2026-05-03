@@ -18,7 +18,6 @@ public class KeyBindings {
             GLFW.GLFW_KEY_B,
             "key.categories.bedgunwars"
     );
-
     public static final KeyMapping MINIMAP_SETTINGS_KEY = new KeyMapping(
             "key.bedgunwars.minimap_settings",
             KeyConflictContext.IN_GAME,
@@ -26,4 +25,12 @@ public class KeyBindings {
             GLFW.GLFW_KEY_M,
             "key.categories.bedgunwars"
     );
+//    public static final KeyMapping TAB_STATS_KEY = new KeyMapping(
+//            "key.bedgunwars.tab_stats",
+//            net.minecraftforge.client.settings.KeyConflictContext.IN_GAME,
+//            net.minecraftforge.client.settings.KeyModifier.NONE,
+//            InputConstants.Type.KEYSYM,
+//            GLFW.GLFW_KEY_TAB,
+//            "key.categories.bedgunwars"
+//    );
 }

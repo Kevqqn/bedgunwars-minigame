@@ -18,14 +18,11 @@ public class GunSelectionManager {
 
     public static List<ResourceLocation> getAllAvailableGuns() {
         List<ResourceLocation> guns = new ArrayList<>();
-        try {
-            com.tacz.guns.api.TimelessAPI.getAllCommonGunIndex().forEach(entry -> guns.add(entry.getKey()));
-        } catch (Exception e) {
-            guns.add(ResourceLocation.fromNamespaceAndPath("tacz", "ak47"));
-            guns.add(ResourceLocation.fromNamespaceAndPath("tacz", "m4a1"));
-            guns.add(ResourceLocation.fromNamespaceAndPath("tacz", "m700"));
-        }
-        guns.sort(Comparator.comparing(ResourceLocation::getPath));
+        com.tacz.guns.api.TimelessAPI.getAllCommonGunIndex().forEach(entry -> {
+            if (!ExcludedGunsConfig.isExcluded(entry.getKey())) {
+                guns.add(entry.getKey());
+            }
+        });
         return guns;
     }
 

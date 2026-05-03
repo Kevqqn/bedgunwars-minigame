@@ -70,6 +70,10 @@ public class GameSession {
 
     public int getKills(UUID uuid) { return playerKills.getOrDefault(uuid, 0); }
     public void addKill(UUID uuid) { playerKills.merge(uuid, 1, Integer::sum); }
+    private final Map<UUID, Integer> playerDeaths = new HashMap<>();
+    public int getDeaths(UUID uuid) { return playerDeaths.getOrDefault(uuid, 0); }
+    public void addDeath(UUID uuid) { playerDeaths.merge(uuid, 1, Integer::sum); }
+    public Map<UUID, Integer> getPlayerDeaths() { return playerDeaths; }
     public ServerLevel getLevel() { return level; }
     public BlockPos getBeaconPos() { return beaconPos; }
     public GameModeType getMode() { return mode; }
@@ -126,7 +130,7 @@ public class GameSession {
 
     private boolean matchTimerSet = false;
     private int endgameBorderShrinkTicks = 0;
-    private int endgameBorderShrinkInterval = 2 * 60 * 20;
+    private int endgameBorderShrinkInterval = 60 * 20;
 
     // Border
     public int getBorderRadius() { return borderRadius; }

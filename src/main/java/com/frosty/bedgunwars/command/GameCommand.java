@@ -430,12 +430,12 @@ public class GameCommand {
             player.getInventory().setItem(2, new ItemStack(Items.WOODEN_PICKAXE, 1));
             player.getInventory().setItem(3, new ItemStack(Items.STONE, 64));
 
-            ItemStack ammoBox = new ItemStack(BuiltInRegistries.ITEM.get(
-                    ResourceLocation.fromNamespaceAndPath("tacz", "ammo_box")), 1);
-            if (!ammoBox.isEmpty()) {
-                ammoBox.getOrCreateTag().putBoolean("AllTypeCreative", true);
-                player.getInventory().add(ammoBox);
-            }
+//            ItemStack ammoBox = new ItemStack(BuiltInRegistries.ITEM.get(
+//                    ResourceLocation.fromNamespaceAndPath("tacz", "ammo_box")), 1);
+//            if (!ammoBox.isEmpty()) {
+//                ammoBox.getOrCreateTag().putBoolean("AllTypeCreative", true);
+//                player.getInventory().add(ammoBox);
+//            }
 
             player.containerMenu.broadcastChanges();
         }

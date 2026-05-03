@@ -1,15 +1,13 @@
 package com.frosty.bedgunwars;
 
+import com.frosty.bedgunwars.client.TabStatsScreen;
 import com.frosty.bedgunwars.command.GameCommand;
 import com.frosty.bedgunwars.command.GameDebugCommand;
 import com.frosty.bedgunwars.event.BedEventHandler;
 import com.frosty.bedgunwars.event.GameTickHandler;
 import com.frosty.bedgunwars.event.PlayerDeathHandler;
 // import com.frosty.bedgunwars.event.PlayerRespawnHandler;
-import com.frosty.bedgunwars.game.GameManager;
-import com.frosty.bedgunwars.game.GameModeType;
-import com.frosty.bedgunwars.game.GamePhase;
-import com.frosty.bedgunwars.game.GameSession;
+import com.frosty.bedgunwars.game.*;
 import com.frosty.bedgunwars.minimap.MinimapConfig;
 import com.frosty.bedgunwars.minimap.MinimapRenderer;
 import com.frosty.bedgunwars.minimap.MinimapSettingsScreen;
@@ -19,6 +17,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
@@ -34,12 +33,14 @@ public class BedGunWars {
     public static final String MOD_ID = "bedgunwars";
 
     public BedGunWars(net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext context) {
+        ExcludedGunsConfig.load();
         MinecraftForge.EVENT_BUS.register(this);
         MinecraftForge.EVENT_BUS.register(new GameTickHandler());
         MinecraftForge.EVENT_BUS.register(new BedEventHandler());
         MinecraftForge.EVENT_BUS.register(new PlayerDeathHandler());
         if (net.minecraftforge.fml.loading.FMLEnvironment.dist.isClient()) {
-            MinecraftForge.EVENT_BUS.register(new MinimapRenderer());
+            MinecraftForge.EVENT_BUS.register(new com.frosty.bedgunwars.minimap.MinimapRenderer());
+            com.frosty.bedgunwars.client.TabStatsClientProxy.register();
         }
         MinimapConfig.register(context);
         PacketHandler.register();
@@ -47,6 +48,11 @@ public class BedGunWars {
     }
 
     public static final org.apache.logging.log4j.Logger LOGGER = org.apache.logging.log4j.LogManager.getLogger();
+    public static boolean debugLogging = false;
+
+    public static void debugLog(String message, Object... args) {
+        if (debugLogging) LOGGER.info(message, args);
+    }
 
     @Mod.EventBusSubscriber(modid = BedGunWars.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = net.minecraftforge.api.distmarker.Dist.CLIENT)
     public static class ClientForgeEvents {
@@ -54,6 +60,7 @@ public class BedGunWars {
         public static void onKeyInput(net.minecraftforge.client.event.InputEvent.Key event) {
             if (KeyBindings.GUN_MENU_KEY.consumeClick()) {
                 net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+                BedGunWars.LOGGER.info("[GunMenu] B pressed: player={}, screen={}", mc.player, mc.screen);
                 if (mc.player == null || mc.screen != null) return;
                 PacketHandler.CHANNEL.sendToServer(new com.frosty.bedgunwars.network.RequestGunMenuPacket());
             }
@@ -61,6 +68,23 @@ public class BedGunWars {
                 net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
                 if (mc.player == null || mc.screen != null) return;
                 mc.setScreen(new MinimapSettingsScreen());
+            }
+            // TAB stats — hold to show, release to close, only during active game
+            if (event.getKey() == org.lwjgl.glfw.GLFW.GLFW_KEY_TAB) {
+                net.minecraft.client.Minecraft mc2 = net.minecraft.client.Minecraft.getInstance();
+                BedGunWars.LOGGER.info("[Tab] pressed: isStarted={}, hasData={}",
+                        com.frosty.bedgunwars.minimap.MinimapRenderer.isStarted(),
+                        com.frosty.bedgunwars.client.TabStatsScreen.hasData());
+                if (mc2.player != null && com.frosty.bedgunwars.minimap.MinimapRenderer.isStarted()) {
+                    if (event.getAction() == org.lwjgl.glfw.GLFW.GLFW_PRESS) {
+                        com.frosty.bedgunwars.client.TabStatsScreen.visible = true;
+                        BedGunWars.LOGGER.info("[Tab] visible=true, hasData={}, isStarted={}",
+                                com.frosty.bedgunwars.client.TabStatsScreen.hasData(),
+                                com.frosty.bedgunwars.minimap.MinimapRenderer.isStarted());
+                    } else if (event.getAction() == org.lwjgl.glfw.GLFW.GLFW_RELEASE) {
+                        com.frosty.bedgunwars.client.TabStatsScreen.visible = false;
+                    }
+                }
             }
         }
     }
@@ -71,6 +95,7 @@ public class BedGunWars {
         public static void onRegisterKeyMappings(net.minecraftforge.client.event.RegisterKeyMappingsEvent event) {
             event.register(KeyBindings.GUN_MENU_KEY);
             event.register(KeyBindings.MINIMAP_SETTINGS_KEY);
+//            event.register(KeyBindings.TAB_STATS_KEY);
         }
     }
 
@@ -196,6 +221,30 @@ public class BedGunWars {
                                                                 ctx.getSource(),
                                                                 StringArgumentType.getString(ctx, "target"),
                                                                 com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(ctx, "amount"))))))
+                                .then(Commands.literal("enableDebugLog")
+                                        .then(Commands.argument("enabled", IntegerArgumentType.integer(0, 1))
+                                                .executes(ctx -> {
+                                                    int val = IntegerArgumentType.getInteger(ctx, "enabled");
+                                                    BedGunWars.debugLogging = val == 1;
+                                                    ctx.getSource().sendSuccess(() -> Component.literal(
+                                                            "Debug logging " + (BedGunWars.debugLogging ? "§aenabled" : "§cdisabled")), false);
+                                                    return 1;
+                                                })))
+                                .then(Commands.literal("excludegun")
+                                        .then(Commands.literal("reload")
+                                                .executes(ctx -> {
+                                                    ExcludedGunsConfig.load();
+                                                    ctx.getSource().sendSuccess(() ->
+                                                            Component.literal("§aExcluded guns config reloaded."), false);
+                                                    return 1;
+                                                }))
+                                        .then(Commands.literal("list")
+                                                .executes(ctx -> {
+                                                    ExcludedGunsConfig.getExcluded().forEach(id ->
+                                                            ctx.getSource().sendSuccess(() ->
+                                                                    Component.literal("§7- " + id), false));
+                                                    return 1;
+                                                })))
                         )
 
         );

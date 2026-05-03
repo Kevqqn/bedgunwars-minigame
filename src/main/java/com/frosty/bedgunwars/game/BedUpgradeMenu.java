@@ -7,6 +7,7 @@ import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.server.MinecraftServer;
 import com.frosty.bedgunwars.game.GameModeType;
 
 import java.util.UUID;
@@ -98,7 +99,12 @@ public class BedUpgradeMenu {
             container.setItem(upgradeSlots[i], display);
         }
 
-        // Buyable items — slot 25 = End Stone, slot 26 = Stone
+        // Buyable items — slot 23 = Obsidian, slot 25 = End Stone, slot 26 = Stone
+        ItemStack obsidian = new ItemStack(Items.OBSIDIAN, 8);
+        obsidian.setHoverName(Component.literal("§eObsidian x8"));
+        addLore(obsidian, "§7Cost: §a$800", "§7Click to buy");
+        container.setItem(23, obsidian);
+
         ItemStack endStone = new ItemStack(Items.END_STONE, 16);
         endStone.setHoverName(Component.literal("§eEnd Stone x16"));
         addLore(endStone, "§7Cost: §a$150", "§7Click to buy");
@@ -109,11 +115,36 @@ public class BedUpgradeMenu {
         addLore(stone, "§7Cost: §a$100", "§7Click to buy");
         container.setItem(26, stone);
 
+        // Replenish ammo button — slot 24, ACTIVE phase only
+        if (session.getPhase() == GamePhase.ACTIVE) {
+            ItemStack ammoReplenish = new ItemStack(Items.ARROW);
+            ammoReplenish.setHoverName(Component.literal("§bReplenish Ammo"));
+            addLore(ammoReplenish,
+                    "§7Restores all ammo reserves to full.",
+                    "§7Cost: §a$500",
+                    "§7Click to replenish");
+            container.setItem(24, ammoReplenish);
+        }
+
         // Fill empty slots with gray glass
         ItemStack filler = new ItemStack(Items.GRAY_STAINED_GLASS_PANE);
         filler.setHoverName(Component.literal(" "));
         for (int i = 0; i < 27; i++) {
             if (container.getItem(i).isEmpty()) container.setItem(i, filler);
+        }
+
+        // Set initial replenish display immediately (will cycle via tickReplenishDisplay)
+        if (session.getPhase() == GamePhase.ACTIVE) {
+            java.util.List<net.minecraft.resources.ResourceLocation> guns =
+                    session.getGunSelectionManager().getGunSelections(player.getUUID());
+            net.minecraft.resources.ResourceLocation ammoId = guns.isEmpty() ? null
+                    : GunHelper.getAmmoId(guns.get(0));
+            ItemStack replenish = ammoId != null
+                    ? GunHelper.buildAmmoStack(ammoId, 1)
+                    : new ItemStack(Items.ARROW);
+            replenish.setHoverName(Component.literal("§bReplenish Ammo"));
+            addLore(replenish, "§7Restores all ammo reserves to full.", "§7Cost: §a$500", "§7Click to replenish");
+            container.setItem(24, replenish);
         }
     }
 
@@ -133,8 +164,30 @@ public class BedUpgradeMenu {
         }
 
         // Buyable items
+        if (slotId == 23) buyItem(player, session, new ItemStack(Items.OBSIDIAN, 8), 800, container, upgradeSlots, mgr, team);
         if (slotId == 25) buyItem(player, session, new ItemStack(Items.END_STONE, 16), 150, container, upgradeSlots, mgr, team);
         if (slotId == 26) buyItem(player, session, new ItemStack(Items.STONE, 32), 100, container, upgradeSlots, mgr, team);
+
+        // Replenish ammo
+        if (slotId == 24 && session.getPhase() == GamePhase.ACTIVE) {
+            java.util.List<net.minecraft.resources.ResourceLocation> guns =
+                    session.getGunSelectionManager().getGunSelections(player.getUUID());
+
+            // Check if all ammo is already at full reserve
+            if (GunHelper.isAmmoFull(player, guns)) {
+                player.sendSystemMessage(Component.literal("§eAmmo is already full!"));
+                return;
+            }
+
+            int cost = 500;
+            if (!session.spendMoney(player.getUUID(), cost)) {
+                player.sendSystemMessage(Component.literal("§cNot enough money! Need §e$" + cost));
+                return;
+            }
+            GunHelper.replenishAmmo(player, guns);
+            player.sendSystemMessage(Component.literal("§aAmmo replenished!"));
+            SoundHelper.playNoteClick(player, SoundHelper.noteToPitch(20));
+        }
     }
 
     private static void purchaseUpgrade(ServerPlayer player, GameSession session,
@@ -239,6 +292,60 @@ public class BedUpgradeMenu {
                             Component.literal(line))));
         }
         stack.getOrCreateTagElement("display").put("Lore", lore);
+    }
+
+    public static void tickReplenishDisplay(MinecraftServer server, GameSession session) {
+        if (session.getPhase() != GamePhase.ACTIVE) return;
+
+        // Get all available ammo IDs across all players' gun selections
+        java.util.List<net.minecraft.resources.ResourceLocation> allAmmoIds = new java.util.ArrayList<>();
+        for (java.util.UUID uuid : session.getPlayers()) {
+            java.util.List<net.minecraft.resources.ResourceLocation> guns =
+                    session.getGunSelectionManager().getGunSelections(uuid);
+            for (net.minecraft.resources.ResourceLocation gunId : guns) {
+                net.minecraft.resources.ResourceLocation ammoId = GunHelper.getAmmoId(gunId);
+                if (ammoId != null && !allAmmoIds.contains(ammoId)) allAmmoIds.add(ammoId);
+            }
+        }
+
+        if (allAmmoIds.isEmpty()) {
+            // No guns selected yet — show generic arrow placeholder
+            ItemStack placeholder = new ItemStack(net.minecraft.world.item.Items.ARROW);
+            placeholder.setHoverName(Component.literal("§bReplenish Ammo"));
+            addLore(placeholder, "§7Restores all ammo reserves to full.", "§7Cost: §a$500", "§7Click to replenish");
+            for (java.util.UUID uuid : session.getPlayers()) {
+                ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+                if (p == null) continue;
+                if (p.containerMenu instanceof net.minecraft.world.inventory.ChestMenu chest) {
+                    if (chest.getContainer().getContainerSize() == 27) {
+                        chest.getContainer().setItem(24, placeholder.copy());
+                        chest.broadcastChanges();
+                    }
+                }
+            }
+            return;
+        }
+
+        // Pick ammo based on current second
+        int index = (int) ((System.currentTimeMillis() / 1000) % allAmmoIds.size());
+        net.minecraft.resources.ResourceLocation displayAmmoId = allAmmoIds.get(index);
+        ItemStack displayStack = GunHelper.buildAmmoStack(displayAmmoId, 1);
+        if (displayStack.isEmpty()) return;
+
+        displayStack.setHoverName(Component.literal("§bReplenish Ammo"));
+        addLore(displayStack, "§7Restores all ammo reserves to full.", "§7Cost: §a$500", "§7Click to replenish");
+
+        // Update slot 24 for all players with open bed upgrade menus
+        for (java.util.UUID uuid : session.getPlayers()) {
+            ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+            if (p == null) continue;
+            if (p.containerMenu instanceof net.minecraft.world.inventory.ChestMenu chest) {
+                if (chest.getContainer().getContainerSize() == 27) {
+                    chest.getContainer().setItem(24, displayStack.copy());
+                    chest.broadcastChanges();
+                }
+            }
+        }
     }
 
     private static String formatName(BedUpgradeManager.UpgradeType type) {

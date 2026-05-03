@@ -37,6 +37,9 @@ public class PlayerDeathHandler {
             }
         }
 
+        // Track death
+        session.addDeath(uuid);
+
         if (session.getPhase() == GamePhase.ENDING) {
             // Cancel death, eliminate, set spectator
             event.setCanceled(true);

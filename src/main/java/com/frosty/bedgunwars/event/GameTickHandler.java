@@ -83,6 +83,7 @@ public class GameTickHandler {
                     net.minecraft.server.level.ServerPlayer p = event.getServer().getPlayerList().getPlayer(uuid);
                     if (p != null) PacketHandler.CHANNEL.send(net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> p), pkt);
                 }
+                TabStatsManager.push(event.getServer(), session);
             }
             applyPrepEffects(event.getServer(), session);
             session.hideAllNametags(event.getServer());
@@ -109,6 +110,7 @@ public class GameTickHandler {
             if (session.getPrepTimeTicks() <= 0) {
                 session.setPhase(GamePhase.ACTIVE);
                 liftPrepEffects(event.getServer(), session);
+                TabStatsManager.push(event.getServer(), session);
                 event.getServer().getGameRules().getRule(GameRules.RULE_KEEPINVENTORY).set(true, event.getServer());
                 for (ServerPlayer p : event.getServer().getPlayerList().getPlayers()) {
                     SoundHelper.playNoteClick(p, SoundHelper.noteToPitch(25));
@@ -131,6 +133,14 @@ public class GameTickHandler {
                     || ticksLeft == 5 * 20 || ticksLeft == 4 * 20 || ticksLeft == 3 * 20
                     || ticksLeft == 2 * 20 || ticksLeft == 1 * 20) {
                 broadcast(event.getServer(), "Match ends in " + secondsLeft + "s!");
+            }
+
+            if (ticksLeft % 20 == 0) {
+                BedUpgradeMenu.tickReplenishDisplay(event.getServer(), session);
+            }
+
+            if (ticksLeft % 40 == 0) {
+                TabStatsManager.push(event.getServer(), session);
             }
 
             if (ticksLeft <= 0) {

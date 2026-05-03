@@ -1,7 +1,6 @@
 package com.frosty.bedgunwars.client;
 
 import com.frosty.bedgunwars.game.GunHelper;
-import com.frosty.bedgunwars.game.SoundHelper;
 import com.frosty.bedgunwars.network.PacketHandler;
 import com.frosty.bedgunwars.network.SelectAttachmentPacket;
 import com.frosty.bedgunwars.network.SelectGunPacket;
@@ -13,10 +12,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
@@ -129,9 +126,6 @@ public class GunSelectionScreen extends Screen {
         gunAttachments.forEach((slot, typeMap) ->
                 this.gunAttachments.put(slot, new HashMap<>(typeMap)));
     }
-
-    // Sound for hover
-    private int lastHoveredIndex = -1;
 
     /** Backwards-compatible open without gunAttachments (empty map). */
     public void updateData(
@@ -359,12 +353,6 @@ public class GunSelectionScreen extends Screen {
             int cx = startX + i * (cardW + cardGap);
             boolean hasGun = i < selectedGuns.size();
             boolean hovered = mx >= cx && mx < cx + cardW && my >= startY && my < startY + cardH;
-            if (hovered && i != lastHoveredIndex) {
-                lastHoveredIndex = i;
-                Minecraft.getInstance().getSoundManager().play(
-                        SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_HAT, SoundHelper.noteToPitch(18))
-                );
-            }
             g.fill(cx, startY, cx + cardW, startY + cardH,
                     hasGun ? (hovered ? 0xCC253525 : 0xCC1A2A1A) : 0xCC111111);
             g.renderOutline(cx, startY, cardW, cardH,
@@ -424,17 +412,17 @@ public class GunSelectionScreen extends Screen {
         }
 
         int numCols = Math.min(visibleTypes.size(), 3); // max 3 per row
-        int numRows = Math.max(1, (visibleTypes.size() + 2) / 3);
+        int numRows = (visibleTypes.size() + 2) / 3;    // 1 or 2 rows
 
-        // fix stupid crash on guns attachment not available
-        if (numCols == 0) {
-            g.drawCenteredString(font, "§7No attachments available for this gun.",
+        // failsafe for game crashing upon no attachment on gun selection screen
+        if (numCols ==0) {
+            g.drawCenteredString(font, "§7No Attachments available for this gun.",
                     LIST_X + (this.width - PANEL_W - 16 - LIST_X) / 2,
                     LIST_Y + 40, 0xFFFFFF);
             return;
         }
 
-        // from LIST_X to start of loadout panel
+        // Available area: from LIST_X to start of loadout panel
         int areaW = this.width - PANEL_W - 16 - LIST_X;
         int areaH = (this.height - LIST_Y - 40) / numRows;
         int colW = (areaW - (numCols - 1) * 6) / numCols;
@@ -575,12 +563,6 @@ public class GunSelectionScreen extends Screen {
             boolean isSelected = selection.contains(id);
             boolean hovered = mx >= LIST_X && mx < LIST_X + LIST_W
                     && my >= rowY && my < rowY + ROW_H;
-            if (hovered && (i + scrollOffset) != lastHoveredIndex) {
-                lastHoveredIndex = i + scrollOffset;
-                Minecraft.getInstance().getSoundManager().play(
-                        SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_HAT, SoundHelper.noteToPitch(18))
-                );
-            }
 
             int rowBg = isSelected ? 0xCC1A4A1A
                     : (hovered ? 0xCC252525 : (i % 2 == 0 ? 0xCC111111 : 0xCC0E0E0E));
@@ -625,6 +607,15 @@ public class GunSelectionScreen extends Screen {
                 String tag = "[" + slot + "]";
                 g.drawString(font, "§a" + tag,
                         LIST_X + LIST_W - font.width(tag) - 4, rowY + ROW_H / 2 - 4, 0x44FF44);
+            }
+
+            // Gun stat tooltip on hover (guns tab only)
+            if (hovered && activeTab == 0) {
+                java.util.List<net.minecraft.network.chat.Component> tooltip =
+                        GunHelper.getGunStats(id);
+                if (!tooltip.isEmpty()) {
+                    g.renderTooltip(font, tooltip, java.util.Optional.empty(), mx, my);
+                }
             }
         }
     }
