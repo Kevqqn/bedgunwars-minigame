@@ -262,6 +262,12 @@ public class GameSession {
     private final BedUpgradeManager bedUpgradeManager = new BedUpgradeManager();
     public BedUpgradeManager getBedUpgradeManager() { return bedUpgradeManager; }
 
+    private final KillstreakManager killstreakManager = new KillstreakManager();
+    public KillstreakManager getKillstreakManager() { return killstreakManager; }
+
+    private final MapRestoreManager mapRestoreManager = new MapRestoreManager();
+    public MapRestoreManager getMapRestoreManager() { return mapRestoreManager; }
+
     public boolean isBedBroken(UUID uuid) { return brokenBeds.contains(uuid); }
 
     // elimination

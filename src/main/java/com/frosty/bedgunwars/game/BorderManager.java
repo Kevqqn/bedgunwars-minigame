@@ -25,6 +25,20 @@ public class BorderManager {
         }
     }
 
+    private void shrinkBorder(GameSession session, double targetSize, int durationSeconds) {
+        WorldBorder border = session.getLevel().getWorldBorder();
+        double currentSize = border.getSize();
+        double newSize = Math.max(10, currentSize - (targetSize * 2.0));
+        border.lerpSizeBetween(currentSize, newSize, durationSeconds * 1000L);
+
+        // sync player border shrink visually
+        net.minecraft.network.protocol.game.ClientboundInitializeBorderPacket packet =
+                new net.minecraft.network.protocol.game.ClientboundInitializeBorderPacket(border);
+        for (net.minecraft.server.level.ServerPlayer p : session.getLevel().players()) {
+            p.connection.send(packet);
+        }
+    }
+
     public static void restoreBorder(GameSession session) {
         if (!session.hasBorderSnapshot()) {
             return;

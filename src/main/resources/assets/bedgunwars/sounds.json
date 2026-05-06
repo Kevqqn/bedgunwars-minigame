@@ -1,0 +1,14 @@
+{
+  "uav_self": {
+    "sounds": [{"name": "bedgunwars:lmaouavself", "stream": false}]
+  },
+  "uav_enemy": {
+    "sounds": [{"name": "bedgunwars:lmaouavenemy", "stream": false}]
+  },
+  "jet_engine": {
+    "sounds": [{"name": "bedgunwars:jetengine", "strea": false}]
+  },
+  "airstrike": {
+    "sounds": [{"name": "bedgunwars:airstrike", "stream": false}]
+  }
+}

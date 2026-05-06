@@ -29,6 +29,14 @@ public class MinimapRenderer {
     public static final Set<UUID> visibleEnemyDots = ConcurrentHashMap.newKeySet();
     public static boolean showAllEnemyDots = false;
 
+    // UAV snapshot — stores last known enemy positions, refreshed every 3s
+    // Format: UUID -> [x, z, ticksVisible] (ticksVisible counts down for fade)
+    public static final java.util.concurrent.ConcurrentHashMap<UUID, double[]> uavSnapshots =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    private static int uavSnapshotCooldown = 0;
+    private static final int UAV_SNAPSHOT_INTERVAL = 60; // 3s
+    private static final int UAV_PING_DURATION = 40;     // 2s visible
+
     // Set by onGameStart (server/logic thread), consumed lazily on render thread
     private static volatile boolean pendingInit = false;
 
@@ -43,7 +51,7 @@ public class MinimapRenderer {
     private static volatile boolean started = false;
 
     public static boolean isStarted() { return started; }
-    
+
     // Called from GameTickHandler (server tick thread) — only sets flags,
     // never touches GL or DynamicTexture
 
@@ -71,6 +79,8 @@ public class MinimapRenderer {
     public static void clearEnemyDots() {
         visibleEnemyDots.clear();
         showAllEnemyDots = false;
+        uavSnapshots.clear();
+        uavSnapshotCooldown = 0;
     }
     // Render event — everything GL-touching happens here (render thread)
 
@@ -156,18 +166,16 @@ public class MinimapRenderer {
 
         // Other dots
         GameSession session = GameManager.getSession();
-        if (session != null) {
-            drawOtherDots(gui, mc, session, mapX, mapY, mapSize, halfBlocks, playerX, playerZ, vpX, vpZ, scale);
-        }
+        drawOtherDots(gui, mc, session, mapX, mapY, mapSize, halfBlocks, playerX, playerZ, vpX, vpZ, scale);
 
         // UI chrome
         gui.drawString(mc.font, "N", mapX + mapSize / 2 - 3, mapY - 3, 0xFFFFFFFF);
         drawScaleBar(gui, mc, mapX, mapY, mapSize, halfBlocks);
     }
 
-    
+
     // Chunk feeding — render thread, once per second
-    
+
 
     private void feedLoadedChunks(Minecraft mc) {
         if (mc.level == null || mc.player == null) return;
@@ -211,7 +219,7 @@ public class MinimapRenderer {
         }
     }
 
-    
+
     // Other player dots
 
 
@@ -220,12 +228,58 @@ public class MinimapRenderer {
                                double playerX, double playerZ, int vpX, int vpZ, float scale) {
         UUID localUuid = mc.player.getUUID();
 
-        for (AbstractClientPlayer other : mc.level.players()) {
+        // Update UAV snapshots every 3s from live player positions
+        if (showAllEnemyDots) {
+            uavSnapshotCooldown--;
+            if (uavSnapshotCooldown <= 0) {
+                uavSnapshotCooldown = UAV_SNAPSHOT_INTERVAL;
+                for (net.minecraft.client.multiplayer.PlayerInfo info :
+                        mc.player.connection.getListedOnlinePlayers()) {
+                    UUID uuid = info.getProfile().getId();
+                    if (uuid.equals(localUuid)) continue;
+                    // Find the player entity for current position
+                    for (net.minecraft.client.player.AbstractClientPlayer other : mc.level.players()) {
+                        if (other.getUUID().equals(uuid)) {
+                            uavSnapshots.put(uuid, new double[]{other.getX(), other.getZ(), UAV_PING_DURATION});
+                            break;
+                        }
+                    }
+                }
+            }
+            // Tick down snapshot visibility and draw
+            uavSnapshots.entrySet().removeIf(entry -> {
+                double[] data = entry.getValue();
+                data[2]--;
+                if (data[2] <= 0) return true;
+                UUID uuid = entry.getKey();
+                if (session != null) {
+                    boolean isTeammate = isTeammate(session, localUuid, uuid);
+                    if (isTeammate) return false; // teammates drawn below
+                }
+                int texX = (int) data[0] - TEXTURE.getOriginX();
+                int texZ = (int) data[1] - TEXTURE.getOriginZ();
+                int dotX = mapX + Math.round((texX - vpX) * scale);
+                int dotZ = mapY + Math.round((texZ - vpZ) * scale);
+                if (dotX < mapX || dotX > mapX + mapSize || dotZ < mapY || dotZ > mapY + mapSize) return false;
+                // Fade alpha based on remaining time
+                int alpha = (int)(255 * (data[2] / (double) UAV_PING_DURATION));
+                int color = (alpha << 24) | 0xFF0000;
+                gui.fill(dotX - 2, dotZ - 2, dotX + 2, dotZ + 2, color);
+                return false;
+            });
+        } else {
+            uavSnapshots.clear();
+            uavSnapshotCooldown = 0;
+        }
+
+        // Draw live dots for teammates and visibleEnemyDots
+        if (session == null) return;
+        for (net.minecraft.client.player.AbstractClientPlayer other : mc.level.players()) {
             UUID uuid = other.getUUID();
             if (uuid.equals(localUuid)) continue;
 
             boolean isTeammate = isTeammate(session, localUuid, uuid);
-            if (!isTeammate && !showAllEnemyDots && !visibleEnemyDots.contains(uuid)) continue;
+            if (!isTeammate && !visibleEnemyDots.contains(uuid)) continue;
 
             int otherTexX = (int) other.getX() - TEXTURE.getOriginX();
             int otherTexZ = (int) other.getZ() - TEXTURE.getOriginZ();
@@ -260,9 +314,9 @@ public class MinimapRenderer {
         };
     }
 
-    
+
     // Scale bar
-    
+
 
     private void drawScaleBar(GuiGraphics gui, Minecraft mc,
                               int mapX, int mapY, int mapSize, int halfBlocks) {

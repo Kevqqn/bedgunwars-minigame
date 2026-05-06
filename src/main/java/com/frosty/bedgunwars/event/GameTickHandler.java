@@ -109,6 +109,7 @@ public class GameTickHandler {
 
             if (session.getPrepTimeTicks() <= 0) {
                 session.setPhase(GamePhase.ACTIVE);
+                session.getMapRestoreManager().init(session.getLevel());
                 liftPrepEffects(event.getServer(), session);
                 TabStatsManager.push(event.getServer(), session);
                 event.getServer().getGameRules().getRule(GameRules.RULE_KEEPINVENTORY).set(true, event.getServer());
@@ -148,6 +149,7 @@ public class GameTickHandler {
             }
             GameScoreboard.update(session);
             tickBedUpgrades(event.getServer(), session);
+            session.getKillstreakManager().tick(event.getServer(), session);
         }
 
         else if (phase == GamePhase.ENDING) {
@@ -176,6 +178,17 @@ public class GameTickHandler {
             tickAntiSittingDuck(event.getServer(), session);
             WinManager.checkWinner(session);
             GameScoreboard.update(session);
+            session.getKillstreakManager().tick(event.getServer(), session);
+            // Sync border to all players every second so lerp animation shows correctly
+            if (shrinkTicks % 20 == 0) {
+                net.minecraft.world.level.border.WorldBorder border =
+                        session.getLevel().getWorldBorder();
+                net.minecraft.network.protocol.game.ClientboundInitializeBorderPacket pkt =
+                        new net.minecraft.network.protocol.game.ClientboundInitializeBorderPacket(border);
+                for (net.minecraft.server.level.ServerPlayer p : session.getLevel().players()) {
+                    p.connection.send(pkt);
+                }
+            }
         }
 
         else if (phase == GamePhase.WINNER_ANNOUNCED) {
@@ -442,10 +455,17 @@ public class GameTickHandler {
     }
 
     private void shrinkBorder(GameSession session, double targetSize, int durationSeconds) {
-        WorldBorder border = session.getLevel().getWorldBorder();
+        net.minecraft.server.level.ServerLevel level = session.getLevel();
+        net.minecraft.world.level.border.WorldBorder border = level.getWorldBorder();
         double currentSize = border.getSize();
         double newSize = Math.max(10, currentSize - (targetSize * 2.0));
-        border.lerpSizeBetween(currentSize, newSize, 20 * 1000L);
+        border.lerpSizeBetween(currentSize, newSize, durationSeconds * 1000L);
+        // Sync to all players in this dimension
+        net.minecraft.network.protocol.game.ClientboundInitializeBorderPacket packet =
+                new net.minecraft.network.protocol.game.ClientboundInitializeBorderPacket(border);
+        for (net.minecraft.server.level.ServerPlayer p : level.players()) {
+            p.connection.send(packet);
+        }
     }
 
     private String formatTime(int totalSeconds) {

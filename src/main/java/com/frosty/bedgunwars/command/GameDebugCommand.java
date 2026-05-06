@@ -4,6 +4,7 @@ import com.frosty.bedgunwars.game.GameManager;
 import com.frosty.bedgunwars.game.GamePhase;
 import com.frosty.bedgunwars.game.GameSession;
 import com.frosty.bedgunwars.game.WinManager;
+import com.frosty.bedgunwars.network.PacketHandler;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -122,6 +123,65 @@ public class GameDebugCommand {
         // Kill — PlayerDeathHandler will see bed is broken and permanently eliminate
         target.hurt(target.damageSources().magic(), Float.MAX_VALUE);
         source.sendSuccess(() -> Component.literal(targetName + "'s bed was broken and they were killed."), false);
+        return 1;
+    }
+    // grant player killstreak access for testing
+    public static int giveKillstreak(CommandSourceStack source, String playerName, String killstreakName) {
+        GameSession session = GameManager.getSession();
+        if (session == null || !session.isActive()) {
+            source.sendFailure(Component.literal("No active game."));
+            return 0;
+        }
+
+        com.frosty.bedgunwars.game.KillstreakType type;
+        try {
+            type = com.frosty.bedgunwars.game.KillstreakType.valueOf(killstreakName.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            source.sendFailure(Component.literal("Unknown killstreak: " + killstreakName));
+            return 0;
+        }
+
+        net.minecraft.server.level.ServerPlayer target =
+                source.getServer().getPlayerList().getPlayerByName(playerName);
+        if (target == null) {
+            source.sendFailure(Component.literal("Player not found: " + playerName));
+            return 0;
+        }
+
+        session.getKillstreakManager().award(target.getUUID(), type, source.getServer());
+        session.getKillstreakManager().pushState(target.getUUID(), source.getServer(), session);
+        source.sendSuccess(() -> Component.literal("§aGranted §e" + type.displayName + " §ato §f" + playerName), false);
+        return 1;
+    }
+
+    public static int spawnJet(CommandSourceStack source) {
+        try {
+            net.minecraft.server.level.ServerPlayer player = source.getPlayerOrException();
+            float speed = com.frosty.bedgunwars.entity.JetEntity.SPEED;
+            // Spawn above player, flying in the direction they're looking
+            float yawRad = (float) Math.toRadians(player.getYRot());
+            double dx = -Math.sin(yawRad);
+            double dz = Math.cos(yawRad);
+            PacketHandler.sendToClient(player,
+                    new com.frosty.bedgunwars.network.SpawnJetPacket(
+                            player.getX(), player.getY() + 20, player.getZ(),
+                            dx / speed, dz / speed, speed, 1));
+            source.sendSuccess(() -> Component.literal("§aJet spawned above you."), false);
+            return 1;
+        } catch (Exception e) {
+            source.sendFailure(Component.literal("Error: " + e.getMessage()));
+            return 0;
+        }
+    }
+
+    public static int despawnJets(CommandSourceStack source) {
+        // Send clear packet to all players
+        for (net.minecraft.server.level.ServerPlayer p :
+                source.getServer().getPlayerList().getPlayers()) {
+            PacketHandler.sendToClient(p,
+                    new com.frosty.bedgunwars.network.MinimapStopPacket()); // clearAll is called in MinimapStopPacket
+        }
+        source.sendSuccess(() -> Component.literal("§aCleared all jets."), false);
         return 1;
     }
 

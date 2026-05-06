@@ -250,6 +250,25 @@ public class GameCommand {
         return 1;
     }
 
+    public static int forceJoinAll(CommandSourceStack source) {
+        MinecraftServer server = source.getServer();
+        GameSession session = GameManager.getSession();
+        if (session == null || !session.isActive()) {
+            source.sendFailure(Component.literal("No active game."));
+            return 0;
+        }
+        int count = 0;
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            if (!session.getPlayers().contains(player.getUUID())) {
+                session.addPlayer(player.getUUID());
+                player.sendSystemMessage(Component.literal("§aYou have been force-joined to the game."));
+                count++;
+            }
+        }
+        final int c = count;
+        source.sendSuccess(() -> Component.literal("§aForce-joined §e" + c + " §aplayers."), false);
+        return count;
+    }
 
     public static int setMatchTime(CommandSourceStack source, int seconds) {
         if (!GameManager.hasGame()) {

@@ -12,7 +12,12 @@ public class MinimapStopPacket {
     public static void encode(MinimapStopPacket pkt, FriendlyByteBuf buf) {}
 
     public static void handle(MinimapStopPacket pkt, Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(MinimapClientProxy::onGameEnd);
+        ctx.get().enqueueWork(() -> {
+            MinimapClientProxy.onGameEnd();
+            com.frosty.bedgunwars.client.AirSupportMapScreen.forceClose();
+            com.frosty.bedgunwars.client.KillstreakHudRenderer.overlayOpen = false;
+            com.frosty.bedgunwars.client.ClientJetManager.clearAll();
+        });
         ctx.get().setPacketHandled(true);
     }
 }

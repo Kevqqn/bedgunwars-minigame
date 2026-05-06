@@ -18,7 +18,14 @@ side = "BOTH"
 
 [[dependencies.bedgunwars]]
 modId = "lrtactical"
-mandatory = false
+mandatory = true
 versionRange = "[0.3.0,)"
 ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies.bedgunwars]]
+modId = "geckolib"
+mandatory = false
+versionRange = "[4.4.4,5)"
+ordering = "NONE"
 side = "BOTH"

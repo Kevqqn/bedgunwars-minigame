@@ -256,4 +256,24 @@ public class BedEventHandler {
         if (session.getPhase() != GamePhase.PREPARATION && session.getPhase() != GamePhase.ACTIVE) return;
         event.setResult(net.minecraft.world.entity.player.Player.BedSleepingProblem.OTHER_PROBLEM);
     }
+
+    @SubscribeEvent
+    public void onBlockBreakRestore(BlockEvent.BreakEvent event) {
+        if (!GameManager.hasGame()) return;
+        if (!(event.getPlayer() instanceof ServerPlayer)) return;
+        GameSession session = GameManager.getSession();
+        if (session == null || session.getPhase() != GamePhase.ACTIVE) return;
+        if (!(event.getLevel() instanceof net.minecraft.server.level.ServerLevel sl)) return;
+        session.getMapRestoreManager().onBlockBroken(event.getPos(), event.getState(), sl);
+    }
+
+    @SubscribeEvent
+    public void onBlockPlaceRestore(BlockEvent.EntityPlaceEvent event) {
+        if (!GameManager.hasGame()) return;
+        if (!(event.getEntity() instanceof ServerPlayer)) return;
+        GameSession session = GameManager.getSession();
+        if (session == null || session.getPhase() != GamePhase.ACTIVE) return;
+        if (!(event.getLevel() instanceof net.minecraft.server.level.ServerLevel sl)) return;
+        session.getMapRestoreManager().onBlockPlaced(event.getPos(), sl);
+    }
 }

@@ -72,10 +72,23 @@ public class GunSelectionScreen extends Screen {
     private static final int CARD_GAP = 14;
 
     // State
-    private int  activeTab      = 0;   // 0=guns, 1=attachments, 2=throwables
+    private int  activeTab      = 0;   // 0=guns, 1=attachments, 2=throwables, 3=loadouts
     private int  scrollOffset   = 0;
     private int  activeCategory = 0;
     private boolean draggingScrollbar = false;
+
+    // Loadout state
+    private static java.util.List<com.frosty.bedgunwars.game.LoadoutManager.Loadout> clientLoadouts
+            = new java.util.ArrayList<>();
+    private int namingLoadoutIndex = -1;  // >=0 = naming/renaming
+    private String loadoutNameBuffer = "";
+    private boolean namingNew = false;
+    private int confirmDeleteIndex = -1;  // >=0 = pending delete confirmation
+
+    public static void updateLoadouts(
+            java.util.List<com.frosty.bedgunwars.game.LoadoutManager.Loadout> loadouts) {
+        clientLoadouts = new java.util.ArrayList<>(loadouts);
+    }
 
     // Attachment editor state
     private int attachmentEditorGunSlot = -1; // -1 = gun picker, 0/1/2 = editor
@@ -309,7 +322,10 @@ public class GunSelectionScreen extends Screen {
         renderTabs(g, mouseX, mouseY);
 
         // Content depends on active tab and sub-state
-        if (activeTab == 1) {
+        if (activeTab == 3) {
+            if (searchBox != null) searchBox.visible = false;
+            renderLoadoutsTab(g, mouseX, mouseY);
+        } else if (activeTab == 1) {
             if (searchBox != null) searchBox.visible = false;
             if (inAttachmentEditor()) {
                 renderAttachmentEditor(g, mouseX, mouseY);
@@ -330,9 +346,9 @@ public class GunSelectionScreen extends Screen {
     }
 
     private void renderTabs(GuiGraphics g, int mx, int my) {
-        String[] labels = {"Weapons", "Attachments", "Throwables"};
+        String[] labels = {"Weapons", "Attachments", "Throwables", "Loadouts"};
         int tabY = 20;
-        for (int t = 0; t < 3; t++) {
+        for (int t = 0; t < 4; t++) {
             int tx = LIST_X + t * (TAB_W + 2);
             boolean active  = activeTab == t;
             boolean hovered = mx >= tx && mx < tx + TAB_W && my >= tabY && my < tabY + TAB_H;
@@ -732,13 +748,78 @@ public class GunSelectionScreen extends Screen {
     public boolean mouseClicked(double mx, double my, int button) {
         // Tab clicks
         int tabY = 20;
-        for (int t = 0; t < 3; t++) {
+        for (int t = 0; t < 4; t++) {
             int tx = LIST_X + t * (TAB_W + 2);
             if (mx >= tx && mx < tx + TAB_W && my >= tabY && my < tabY + TAB_H) {
                 if (activeTab != t) { exitEditor(); activeCategory = 0; scrollOffset = 0;
+                    namingLoadoutIndex = -1; confirmDeleteIndex = -1;
                     if (searchBox != null) searchBox.setValue(""); }
                 activeTab = t; return true;
             }
+        }
+
+        // Loadouts tab clicks
+        if (activeTab == 3) {
+            int panelX = this.width - PANEL_W - 6;
+            int contentW = panelX - LIST_X - 10; // don't overlap right panel
+            int x = LIST_X, y = LIST_Y;
+            int cardH = 80, cardGap = 6;
+
+            // Naming input — all clicks handled by keyPressed
+            if (namingLoadoutIndex >= 0) return true;
+
+            // Delete confirmation overlay
+            if (confirmDeleteIndex >= 0) {
+                // Coords must match renderLoadoutsTab exactly
+                int ovW = 280, ovH = 80;
+                int ovX = this.width / 2 - ovW / 2, ovY = this.height / 2 - ovH / 2;
+                int cbX = ovX + 20, cbY = ovY + ovH - 28;
+                int ccX = ovX + ovW - 75;
+                if (mx >= cbX && mx < cbX + 55 && my >= cbY && my < cbY + 20) {
+                    PacketHandler.CHANNEL.sendToServer(new com.frosty.bedgunwars.network.LoadoutPacket(
+                            com.frosty.bedgunwars.network.LoadoutPacket.Action.DELETE,
+                            confirmDeleteIndex, ""));
+                    confirmDeleteIndex = -1; return true;
+                }
+                if (mx >= ccX && mx < ccX + 55 && my >= cbY && my < cbY + 20) {
+                    confirmDeleteIndex = -1; return true;
+                }
+                return true;
+            }
+
+            // Loadout cards
+            for (int i = 0; i < clientLoadouts.size(); i++) {
+                int sy = y + i * (cardH + cardGap);
+                int btnAreaX = x + contentW - 170;
+                int btnY = sy + (cardH - 16) / 2;
+
+                // Load button
+                if (mx >= btnAreaX && mx < btnAreaX + 50 && my >= btnY && my < btnY + 16) {
+                    PacketHandler.CHANNEL.sendToServer(new com.frosty.bedgunwars.network.LoadoutPacket(
+                            com.frosty.bedgunwars.network.LoadoutPacket.Action.APPLY, i, ""));
+                    return true;
+                }
+                // Rename button
+                int renX = btnAreaX + 56;
+                if (mx >= renX && mx < renX + 56 && my >= btnY && my < btnY + 16) {
+                    namingLoadoutIndex = i; namingNew = false;
+                    loadoutNameBuffer = clientLoadouts.get(i).name; return true;
+                }
+                // Delete button
+                int delX = renX + 62;
+                if (mx >= delX && mx < delX + 50 && my >= btnY && my < btnY + 16) {
+                    confirmDeleteIndex = i; return true;
+                }
+            }
+
+            // Save Current Loadout button
+            int saveY = y + clientLoadouts.size() * (cardH + cardGap) + 10;
+            boolean canSave = clientLoadouts.size() < com.frosty.bedgunwars.game.LoadoutManager.MAX_LOADOUTS;
+            if (canSave && mx >= x && mx < x + contentW && my >= saveY && my < saveY + 22) {
+                namingLoadoutIndex = clientLoadouts.size(); namingNew = true;
+                loadoutNameBuffer = "Loadout " + (clientLoadouts.size() + 1); return true;
+            }
+            return false;
         }
 
         if (activeTab == 1) {
@@ -755,6 +836,7 @@ public class GunSelectionScreen extends Screen {
                         attachmentEditorGunSlot, k -> new HashMap<>());
 
                 int numCols = Math.min(visibleTypes.size(), 3);
+                if (numCols == 0) return true;
                 int areaW = this.width - PANEL_W - 16 - LIST_X;
                 int areaH = (this.height - LIST_Y - 40) / ((visibleTypes.size() + 2) / 3);
                 int colW = (areaW - (numCols - 1) * 6) / numCols;
@@ -930,8 +1012,184 @@ public class GunSelectionScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (namingLoadoutIndex >= 0) {
+            if (keyCode == 257 || keyCode == 335) { // Enter
+                if (!loadoutNameBuffer.isEmpty()) {
+                    if (namingNew) {
+                        PacketHandler.CHANNEL.sendToServer(
+                                new com.frosty.bedgunwars.network.LoadoutPacket(
+                                        com.frosty.bedgunwars.network.LoadoutPacket.Action.SAVE,
+                                        -1, loadoutNameBuffer));
+                    } else {
+                        PacketHandler.CHANNEL.sendToServer(
+                                new com.frosty.bedgunwars.network.LoadoutPacket(
+                                        com.frosty.bedgunwars.network.LoadoutPacket.Action.RENAME,
+                                        namingLoadoutIndex, loadoutNameBuffer));
+                    }
+                }
+                namingLoadoutIndex = -1; loadoutNameBuffer = ""; return true;
+            }
+            if (keyCode == 256) { namingLoadoutIndex = -1; loadoutNameBuffer = ""; return true; }
+            if (keyCode == 259 && !loadoutNameBuffer.isEmpty()) {
+                loadoutNameBuffer = loadoutNameBuffer.substring(0, loadoutNameBuffer.length() - 1);
+                return true;
+            }
+            return true;
+        }
+        if (keyCode == 256 && confirmDeleteIndex >= 0) { confirmDeleteIndex = -1; return true; }
         if (keyCode == 256 && inAttachmentEditor()) { exitEditor(); return true; }
         return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    @Override
+    public boolean charTyped(char c, int modifiers) {
+        if (namingLoadoutIndex >= 0 && loadoutNameBuffer.length() < 32) {
+            loadoutNameBuffer += c; return true;
+        }
+        return super.charTyped(c, modifiers);
+    }
+
+    private void renderLoadoutsTab(GuiGraphics g, int mx, int my) {
+        int panelX = this.width - PANEL_W - 6;
+        int contentW = panelX - LIST_X - 10;
+        int x = LIST_X, y = LIST_Y;
+        int cardH = 80, cardGap = 6;
+
+        // Delete confirmation overlay — drawn last, blocks everything behind it
+        if (confirmDeleteIndex >= 0) {
+            String name = confirmDeleteIndex < clientLoadouts.size()
+                    ? clientLoadouts.get(confirmDeleteIndex).name : "this loadout";
+            int ovW = 300, ovH = 90;
+            int ovX = this.width / 2 - ovW / 2, ovY = this.height / 2 - ovH / 2;
+            g.fill(0, 0, this.width, this.height, 0xAA000000);
+            g.fill(ovX, ovY, ovX + ovW, ovY + ovH, 0xFF1A1A1A);
+            g.renderOutline(ovX, ovY, ovW, ovH, 0xFFFF4444);
+            g.drawCenteredString(font, "§cDelete §e" + name + "§c?", ovX + ovW/2, ovY + 12, 0xFFFFFF);
+            g.drawCenteredString(font, "§7This cannot be undone.", ovX + ovW/2, ovY + 26, 0x888888);
+            int cbX = ovX + 30, cbY = ovY + ovH - 30;
+            boolean confHov = mx >= cbX && mx < cbX + 60 && my >= cbY && my < cbY + 22;
+            g.fill(cbX, cbY, cbX + 60, cbY + 22, confHov ? 0xFF882222 : 0xFF551111);
+            g.renderOutline(cbX, cbY, 60, 22, 0xFFBB3333);
+            g.drawCenteredString(font, "§cDelete", cbX + 30, cbY + 7, 0xFFFFFF);
+            int ccX = ovX + ovW - 90, ccY = cbY;
+            boolean cancHov = mx >= ccX && mx < ccX + 60 && my >= ccY && my < ccY + 22;
+            g.fill(ccX, ccY, ccX + 60, ccY + 22, cancHov ? 0xFF333333 : 0xFF222222);
+            g.renderOutline(ccX, ccY, 60, 22, 0xFF555555);
+            g.drawCenteredString(font, "§7Cancel", ccX + 30, ccY + 7, 0xCCCCCC);
+            return;
+        }
+
+        // Naming input
+        if (namingLoadoutIndex >= 0) {
+            g.fill(x, y, x + contentW, y + 34, 0xFF1A1A1A);
+            g.renderOutline(x, y, contentW, 34, 0xFFFFAA00);
+            g.drawString(font, "§7Loadout name:", x + 6, y + 4, 0xAAAAAA);
+            g.drawString(font, "§f" + loadoutNameBuffer + "§7|", x + 6, y + 16, 0xFFFFFF);
+            g.drawCenteredString(font, "§8Enter §7to confirm  §8Esc §7to cancel",
+                    x + contentW / 2, y + 38, 0x555555);
+            return;
+        }
+
+        // Empty state
+        if (clientLoadouts.isEmpty()) {
+            g.drawCenteredString(font, "§7You have no saved loadouts.", x + contentW/2, y + 20 + 20, 0xAAAAAA);
+            g.drawCenteredString(font, "§7Select your guns, attachments and throwables,",
+                    x + contentW/2, y + 34 + 20, 0x777777);
+            g.drawCenteredString(font, "§7then click §e+ Save Current Loadout§7 below.",
+                    x + contentW/2, y + 46 + 20, 0x777777);
+        }
+
+        // Loadout cards
+        for (int i = 0; i < clientLoadouts.size(); i++) {
+            var loadout = clientLoadouts.get(i);
+            int sy = y + i * (cardH + cardGap);
+            boolean cardHov = mx >= x && mx < x + contentW && my >= sy && my < sy + cardH;
+            g.fill(x, sy, x + contentW, sy + cardH, cardHov ? 0xFF202020 : 0xFF181818);
+            g.renderOutline(x, sy, contentW, cardH, 0xFF3A3A3A);
+            g.fill(x, sy, x + 3, sy + cardH, 0xFFFFAA00);
+
+            // Name
+            g.drawString(font, "§e§l" + loadout.name, x + 10, sy + 5, 0xFFFFFF);
+
+            // Gun icons at 2x with name
+            int gx = x + 10;
+            int gy = sy + 18;
+            for (int gi = 0; gi < loadout.guns.size(); gi++) {
+                try {
+                    net.minecraft.resources.ResourceLocation gunId =
+                            net.minecraft.resources.ResourceLocation.parse(loadout.guns.get(gi));
+                    net.minecraft.world.item.ItemStack gs = buildGunStack(gunId);
+                    if (!gs.isEmpty()) {
+                        g.pose().pushPose();
+                        g.pose().translate(gx, gy, 0);
+                        g.pose().scale(2f, 2f, 1f);
+                        g.renderItem(gs, 0, 0);
+                        g.pose().popPose();
+                        String gname = shorten(com.frosty.bedgunwars.game.GunHelper.getGunDisplayName(gunId), 9);
+                        g.drawString(font, "§7" + gname, gx + 34, gy + 8, 0x999999);
+                        gx += 34 + font.width(gname) + 12;
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            // Throwable icons row
+            int ty = sy + 56;
+            g.drawString(font, "§8Throwables:", x + 10, ty + 2, 0x555555);
+            int tx = x + 86;
+            if (loadout.throwables.isEmpty()) {
+                g.drawString(font, "§8None", tx, ty + 2, 0x444444);
+            } else {
+                for (String t : loadout.throwables) {
+                    try {
+                        net.minecraft.resources.ResourceLocation tid =
+                                net.minecraft.resources.ResourceLocation.parse(t);
+                        net.minecraft.world.item.ItemStack ts = buildThrowableStack(tid);
+                        if (!ts.isEmpty()) {
+                            boolean rendered = false;
+                            try {
+                                var disp = me.xjqsh.lrtactical.api.LrTacticalAPI.getThrowableDisplay(ts);
+                                if (disp.isPresent() && disp.get().getSlotTexture() != null) {
+                                    g.blit(disp.get().getSlotTexture(), tx, ty, 0, 0, 16, 16, 16, 16);
+                                    rendered = true;
+                                }
+                            } catch (Exception ignored2) {}
+                            if (!rendered) g.renderItem(ts, tx, ty);
+                            tx += 18;
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+
+            // Buttons
+            int btnAreaX = x + contentW - 174;
+            int btnY = sy + (cardH - 16) / 2;
+            boolean loadHov = mx >= btnAreaX && mx < btnAreaX + 50 && my >= btnY && my < btnY + 16;
+            g.fill(btnAreaX, btnY, btnAreaX + 50, btnY + 16, loadHov ? 0xFF2A5A2A : 0xFF1A3A1A);
+            g.renderOutline(btnAreaX, btnY, 50, 16, loadHov ? 0xFF55BB55 : 0xFF335533);
+            g.drawCenteredString(font, "§aLoad", btnAreaX + 25, btnY + 4, 0xFFFFFF);
+            int renX = btnAreaX + 56;
+            boolean renHov = mx >= renX && mx < renX + 56 && my >= btnY && my < btnY + 16;
+            g.fill(renX, btnY, renX + 56, btnY + 16, renHov ? 0xFF223355 : 0xFF111A2A);
+            g.renderOutline(renX, btnY, 56, 16, renHov ? 0xFF4488BB : 0xFF224466);
+            g.drawCenteredString(font, "§bRename", renX + 28, btnY + 4, 0xFFFFFF);
+            int delX = renX + 62;
+            boolean delHov = mx >= delX && mx < delX + 50 && my >= btnY && my < btnY + 16;
+            g.fill(delX, btnY, delX + 50, btnY + 16, delHov ? 0xFF5A1A1A : 0xFF3A1111);
+            g.renderOutline(delX, btnY, 50, 16, delHov ? 0xFFBB4444 : 0xFF663333);
+            g.drawCenteredString(font, "§cDelete", delX + 25, btnY + 4, 0xFFFFFF);
+        }
+
+        // Save button
+        int saveY = y + clientLoadouts.size() * (cardH + cardGap) + 10;
+        boolean canSave = clientLoadouts.size() < com.frosty.bedgunwars.game.LoadoutManager.MAX_LOADOUTS;
+        boolean saveHov = canSave && mx >= x && mx < x + contentW && my >= saveY && my < saveY + 22;
+        g.fill(x, saveY, x + contentW, saveY + 22,
+                !canSave ? 0xFF181818 : (saveHov ? 0xFF3A3A00 : 0xFF252500));
+        g.renderOutline(x, saveY, contentW, 22,
+                !canSave ? 0xFF333333 : (saveHov ? 0xFFFFDD00 : 0xFF666600));
+        g.drawCenteredString(font,
+                canSave ? "§e+ Save Current Loadout" : "§8Max loadouts reached (8/8)",
+                x + contentW/2, saveY + 7, 0xFFFFFF);
     }
 
     private void updateScrollFromMouse(double my) {

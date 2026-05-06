@@ -68,6 +68,8 @@ public class PlayerReconnectHandler {
             player.sendSystemMessage(Component.literal("You reconnected and are still in the match."));
             GameScoreboard.update(session);
             GameScoreboard.reinitPlayer(player.getUUID());
+            // Sync border to reconnected player
+            syncBorderToPlayer(player, session);
         }
         if (phase == GamePhase.ENDING) {
             if (session.isEliminated(uuid)) {
@@ -78,6 +80,8 @@ public class PlayerReconnectHandler {
             player.sendSystemMessage(Component.literal("§cYou reconnected during Endgame."));
             GameScoreboard.reinitPlayer(uuid);
             GameScoreboard.update(session);
+            // Sync border to reconnected player
+            syncBorderToPlayer(player, session);
         }
     }
     private static void giveStarterItems(ServerPlayer player, GameSession session) {
@@ -108,5 +112,16 @@ public class PlayerReconnectHandler {
 
         player.containerMenu.broadcastChanges();
     }
-}
 
+    private static void syncBorderToPlayer(net.minecraft.server.level.ServerPlayer player,
+                                           com.frosty.bedgunwars.game.GameSession session) {
+        // Delay by 5 ticks to ensure player is fully loaded into the dimension
+        player.getServer().tell(new net.minecraft.server.TickTask(
+                player.getServer().getTickCount() + 5, () -> {
+            net.minecraft.world.level.border.WorldBorder border =
+                    session.getLevel().getWorldBorder();
+            player.connection.send(
+                    new net.minecraft.network.protocol.game.ClientboundInitializeBorderPacket(border));
+        }));
+    }
+}

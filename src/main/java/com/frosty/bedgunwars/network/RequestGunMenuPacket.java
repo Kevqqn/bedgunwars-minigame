@@ -46,6 +46,10 @@ public class RequestGunMenuPacket {
                     allAtt, new java.util.ArrayList<>(),
                     allThrow, currentThrow,
                     gunAttachments));
+
+            // Also send current loadouts
+            LoadoutSyncPacket.send(player,
+                    LoadoutManager.get().getLoadouts(uuid));
         });
         ctx.get().setPacketHandled(true);
     }

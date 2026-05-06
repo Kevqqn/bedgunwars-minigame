@@ -19,6 +19,8 @@ public class GameCleanupManager {
     public static void restoreAndEnd(MinecraftServer server, GameSession session, String endMessage) {
         BossBarManager.remove(server);
         GameScoreboard.remove(server);
+        session.getKillstreakManager().reset(server);
+        session.getMapRestoreManager().restore(session.getLevel());
         for (java.util.UUID uuid : session.getPlayers()) {
             net.minecraft.server.level.ServerPlayer p = server.getPlayerList().getPlayer(uuid);
             if (p != null) com.frosty.bedgunwars.network.PacketHandler.CHANNEL.send(

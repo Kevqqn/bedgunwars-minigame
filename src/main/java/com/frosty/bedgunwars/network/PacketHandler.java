@@ -35,9 +35,35 @@ public class PacketHandler {
                 MinimapStopPacket::encode, MinimapStopPacket::decode, MinimapStopPacket::handle);
         CHANNEL.registerMessage(id++, TabStatsPacket.class,
                 TabStatsPacket::encode, TabStatsPacket::decode, TabStatsPacket::handle);
+        CHANNEL.registerMessage(id++, KillstreakStatePacket.class,
+                KillstreakStatePacket::encode, KillstreakStatePacket::decode, KillstreakStatePacket::handle);
+        CHANNEL.registerMessage(id++, KillstreakEffectPacket.class,
+                KillstreakEffectPacket::encode, KillstreakEffectPacket::decode, KillstreakEffectPacket::handle);
+        CHANNEL.registerMessage(id++, KillstreakActivatePacket.class,
+                KillstreakActivatePacket::encode, KillstreakActivatePacket::decode, KillstreakActivatePacket::handle);
+        CHANNEL.registerMessage(id++, AirSupportPointsPacket.class,
+                AirSupportPointsPacket::encode, AirSupportPointsPacket::decode, AirSupportPointsPacket::handle);
+        CHANNEL.registerMessage(id++, SpawnJetPacket.class,
+                SpawnJetPacket::encode, SpawnJetPacket::decode, SpawnJetPacket::handle);
+        CHANNEL.registerMessage(id++, LoadoutPacket.class,
+                LoadoutPacket::encode, LoadoutPacket::decode, LoadoutPacket::handle);
+        CHANNEL.registerMessage(id++, LoadoutSyncPacket.class,
+                LoadoutSyncPacket::encode, LoadoutSyncPacket::decode, LoadoutSyncPacket::handle);
     }
 
     public static void sendToClient(net.minecraft.server.level.ServerPlayer player, Object packet) {
         CHANNEL.sendTo(packet, player.connection.connection, NetworkDirection.PLAY_TO_CLIENT);
+    }
+
+    public static void sendToAllClients(net.minecraft.server.MinecraftServer server, Object packet) {
+        for (net.minecraft.server.level.ServerPlayer p : server.getPlayerList().getPlayers()) {
+            sendToClient(p, packet);
+        }
+    }
+
+    public static void sendToClientByUUID(java.util.UUID uuid,
+                                          net.minecraft.server.MinecraftServer server, Object packet) {
+        net.minecraft.server.level.ServerPlayer sp = server.getPlayerList().getPlayer(uuid);
+        if (sp != null) sendToClient(sp, packet);
     }
 }

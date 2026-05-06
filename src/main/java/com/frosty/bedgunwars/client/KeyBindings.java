@@ -25,7 +25,14 @@ public class KeyBindings {
             GLFW.GLFW_KEY_M,
             "key.categories.bedgunwars"
     );
-//    public static final KeyMapping TAB_STATS_KEY = new KeyMapping(
+
+    public static final KeyMapping KILLSTREAK_KEY = new KeyMapping(
+            "key.bedgunwars.killstreak",
+            KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_V,
+            "key.categories.bedgunwars"
+    );
 //            "key.bedgunwars.tab_stats",
 //            net.minecraftforge.client.settings.KeyConflictContext.IN_GAME,
 //            net.minecraftforge.client.settings.KeyModifier.NONE,

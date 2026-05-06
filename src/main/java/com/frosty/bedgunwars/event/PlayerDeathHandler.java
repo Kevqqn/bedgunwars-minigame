@@ -34,11 +34,13 @@ public class PlayerDeathHandler {
                 session.addKill(killer.getUUID());
                 session.addMoney(killer.getUUID(), 150);
                 killer.sendSystemMessage(Component.literal("§a+$150 §7(Kill)"));
+                session.getKillstreakManager().onKill(killer.getUUID(), killer.getServer(), session);
             }
         }
 
         // Track death
         session.addDeath(uuid);
+        session.getKillstreakManager().onDeath(uuid, player.getServer(), session);
 
         if (session.getPhase() == GamePhase.ENDING) {
             // Cancel death, eliminate, set spectator
