@@ -185,6 +185,36 @@ public class GameDebugCommand {
         return 1;
     }
 
+    public static int deathmatchStatus(CommandSourceStack source) {
+        GameSession session = GameManager.getSession();
+        if (session == null || !session.isActive()) {
+            source.sendFailure(Component.literal("No active game."));
+            return 0;
+        }
+        if (!session.isDeathmatch()) {
+            source.sendFailure(Component.literal("Not a deathmatch session."));
+            return 0;
+        }
+        var dm = session.getDeathmatchManager();
+        source.sendSuccess(() -> Component.literal("§eAll beacons (" + dm.getAllBeacons().size() + "):"), false);
+        for (net.minecraft.core.BlockPos b : dm.getAllBeacons()) {
+            source.sendSuccess(() -> Component.literal("  §f[" + b.getX() + ", " + b.getY() + ", " + b.getZ() + "]"), false);
+        }
+        source.sendSuccess(() -> Component.literal("§eTeam beacons:"), false);
+        dm.getTeamBeacons().forEach((team, pos) ->
+                source.sendSuccess(() -> Component.literal("  §f" + team + " -> [" + pos.getX() + ", " + pos.getY() + ", " + pos.getZ() + "]"), false)
+        );
+        source.sendSuccess(() -> Component.literal("§eBorder center: §f" +
+                (int)session.getLevel().getWorldBorder().getCenterX() + ", " +
+                (int)session.getLevel().getWorldBorder().getCenterZ()), false);
+        source.sendSuccess(() -> Component.literal("§eBeaconPos (host pos): §f" +
+                session.getBeaconPos().getX() + ", " +
+                session.getBeaconPos().getY() + ", " +
+                session.getBeaconPos().getZ()), false);
+        source.sendSuccess(() -> Component.literal("§eBorder radius: §f" + session.getBorderRadius()), false);
+        return 1;
+    }
+
     // /game debug forcewin [name]
     public static int forceWin(CommandSourceStack source, String winnerName) {
         GameSession session = GameManager.getSession();
@@ -242,6 +272,18 @@ public class GameDebugCommand {
 
         if (phase == GamePhase.ACTIVE && session.getMatchTimeTicks() <= 0) {
             session.setMatchTimeSeconds(600);
+        }
+        // Unlock movement if forcing out of prep in deathmatch
+        if (session.isDeathmatch() && phase == GamePhase.ACTIVE) {
+            for (java.util.UUID uuid : session.getPlayers()) {
+                net.minecraft.server.level.ServerPlayer p = source.getServer().getPlayerList().getPlayer(uuid);
+                if (p != null) GameCommand.unlockMovement(p);
+            }
+        }
+        // For deathmatch skip ENDING phase — not valid
+        if (session.isDeathmatch() && phase == GamePhase.ENDING) {
+            source.sendFailure(Component.literal("Use WINNER_ANNOUNCED instead."));
+            return 0;
         }
 
         session.setPhase(phase);

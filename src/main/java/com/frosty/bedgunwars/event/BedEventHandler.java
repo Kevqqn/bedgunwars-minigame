@@ -27,6 +27,7 @@ public class BedEventHandler {
 
         GameSession session = GameManager.getSession();
         if (session == null || !session.isActive()) return;
+        if (session.isDeathmatch()) return; // no bed placement in deathmatch
         if (session.getPhase() != GamePhase.PREPARATION && session.getPhase() != GamePhase.ACTIVE) return;
 
         BlockState placed = event.getPlacedBlock();
@@ -96,6 +97,7 @@ public class BedEventHandler {
 
         GameSession session = GameManager.getSession();
         if (session == null || !session.isActive()) return;
+        if (session.isDeathmatch()) return; // no bed breaking in deathmatch
 
         BlockPos pos = event.getPos();
         UUID owner = session.getBedOwner(pos);
@@ -188,6 +190,7 @@ public class BedEventHandler {
         if (!GameManager.hasGame()) return;
         GameSession session = GameManager.getSession();
         if (session == null || !session.isActive()) return;
+        if (session.isDeathmatch()) return; // no bed upgrade menu in deathmatch
         if (session.getPhase() != GamePhase.PREPARATION && session.getPhase() != GamePhase.ACTIVE) return;
 
         BlockPos pos = event.getPos();

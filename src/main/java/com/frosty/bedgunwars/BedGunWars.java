@@ -208,6 +208,13 @@ public class BedGunWars {
                                                 .executes(ctx -> GameCommand.startGame(ctx.getSource(), GameModeType.TEAMS,
                                                         IntegerArgumentType.getInteger(ctx, "count"))))
                                 )
+                                .then(Commands.literal("deathmatchsolo")
+                                        .executes(ctx -> GameCommand.startDeathmatch(ctx.getSource(), GameModeType.DEATHMATCH_SOLO, 1)))
+                                .then(Commands.literal("deathmatchteams")
+                                        .then(Commands.argument("count", IntegerArgumentType.integer(2, 6))
+                                                .executes(ctx -> GameCommand.startDeathmatch(ctx.getSource(), GameModeType.DEATHMATCH_TEAMS,
+                                                        IntegerArgumentType.getInteger(ctx, "count"))))
+                                )
                         )
                         .then(Commands.literal("join")
                                 .executes(ctx -> GameCommand.joinGame(ctx.getSource()))
@@ -236,6 +243,13 @@ public class BedGunWars {
                                                 ctx.getSource(),
                                                 IntegerArgumentType.getInteger(ctx, "seconds"))))
                         )
+                        .then(Commands.literal("winkills")
+                                .requires(source -> source.hasPermission(2))
+                                .then(Commands.argument("kills", IntegerArgumentType.integer(10))
+                                        .executes(ctx -> GameCommand.setWinKills(
+                                                ctx.getSource(),
+                                                IntegerArgumentType.getInteger(ctx, "kills"))))
+                        )
                         .then(Commands.literal("teamoptions")
                                 .then(Commands.literal("setfriendlyfire")
                                         .requires(source -> source.hasPermission(2))
@@ -262,6 +276,8 @@ public class BedGunWars {
                                                         ctx.getSource(),
                                                         StringArgumentType.getString(ctx, "player"))))
                                 )
+                                .then(Commands.literal("dmstatus")
+                                        .executes(ctx -> GameDebugCommand.deathmatchStatus(ctx.getSource())))
                                 .then(Commands.literal("eliminatebed")
                                         .then(Commands.argument("player", StringArgumentType.word())
                                                 .suggests(inGamePlayers)

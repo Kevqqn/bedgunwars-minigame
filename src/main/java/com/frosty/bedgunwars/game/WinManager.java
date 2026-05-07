@@ -116,4 +116,40 @@ public class WinManager {
         player.connection.send(new ClientboundSetTitleTextPacket(Component.literal(title)));
         player.connection.send(new ClientboundSetSubtitleTextPacket(Component.literal(subtitle)));
     }
+    // Deathmatch win checks
+    public static void checkDeathmatchWinner(GameSession session) {
+        if (session == null || !session.isActive()) return;
+        if (session.getPhase() != GamePhase.ACTIVE) return;
+        if (session.getMatchStartPlayerCount() <= 1) return;
+
+        String winner = session.getDeathmatchManager().checkKillLimitWinner(session.getKillLimit());
+        if (winner == null) return;
+
+        // Resolve display name
+        String displayName = resolveDisplayName(session, winner);
+        announceWinner(session, displayName);
+    }
+
+    public static void checkDeathmatchTimerWinner(GameSession session) {
+        if (session == null || !session.isActive()) return;
+
+        String winner = session.getDeathmatchManager().getMostKillsWinner();
+        String displayName = winner != null ? resolveDisplayName(session, winner) : "Nobody";
+        announceWinner(session, displayName);
+    }
+    
+    private static String resolveDisplayName(GameSession session, String key) {
+        if (session.getMode() == GameModeType.DEATHMATCH_SOLO) {
+            try {
+                java.util.UUID uuid = java.util.UUID.fromString(key);
+                net.minecraft.server.level.ServerPlayer p =
+                        session.getLevel().getServer().getPlayerList().getPlayer(uuid);
+                return p != null ? p.getName().getString() : key;
+            } catch (IllegalArgumentException e) {
+                return key;
+            }
+        }
+        return key + " Team";
+    }
+
 }

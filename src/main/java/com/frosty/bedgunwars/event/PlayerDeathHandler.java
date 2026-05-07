@@ -35,12 +35,43 @@ public class PlayerDeathHandler {
                 session.addMoney(killer.getUUID(), 150);
                 killer.sendSystemMessage(Component.literal("§a+$150 §7(Kill)"));
                 session.getKillstreakManager().onKill(killer.getUUID(), killer.getServer(), session);
+                // Broadcast death message to all players
+                String killerName = killer.getName().getString();
+                String victimName = player.getName().getString();
+                String weapon = getKillerWeapon(killer);
+                Component deathMsg = Component.literal("§c☠ §f" + killerName + " §7killed §f" + victimName + " §7with §e" + weapon);
+                for (ServerPlayer p : killer.getServer().getPlayerList().getPlayers()) {
+                    p.sendSystemMessage(deathMsg);
+                }
+
+                // Deathmatch kill tracking
+                if (session.isDeathmatch()) {
+                    String killKey = session.getMode() == GameModeType.DEATHMATCH_TEAMS
+                            ? session.getPlayerTeam(killer.getUUID())
+                            : killer.getUUID().toString();
+                    if (killKey != null) {
+                        session.getDeathmatchManager().addKill(killKey);
+                        int kills = session.getDeathmatchManager().getKills(killKey);
+                        int limit = session.getKillLimit();
+                        killer.sendSystemMessage(Component.literal("§e[DM] §fKills: " + kills + "/" + limit));
+                        // Check win condition
+                        WinManager.checkDeathmatchWinner(session);
+                    }
+                }
             }
         }
 
         // Track death
         session.addDeath(uuid);
         session.getKillstreakManager().onDeath(uuid, player.getServer(), session);
+
+        // Deathmatch death — never eliminate, always respawn
+        if (session.isDeathmatch() && session.getPhase() == GamePhase.ACTIVE) {
+            event.setCanceled(true);
+            player.setHealth(player.getMaxHealth());
+            scheduleDeathmatchRespawn(player, session);
+            return;
+        }
 
         if (session.getPhase() == GamePhase.ENDING) {
             // Cancel death, eliminate, set spectator
@@ -186,10 +217,93 @@ public class PlayerDeathHandler {
         return bedPos.above();
     }
 
+    private String getKillerWeapon(ServerPlayer killer) {
+        net.minecraft.world.item.ItemStack held = killer.getMainHandItem();
+        if (held.isEmpty()) return "Unknown";
+        if (held.getItem() instanceof com.tacz.guns.api.item.IGun iGun) {
+            net.minecraft.resources.ResourceLocation id = iGun.getGunId(held);
+            if (id != null) return GunHelper.getGunDisplayName(id);
+        }
+        return held.getHoverName().getString();
+    }
+
     private boolean isSafeSpawn(GameSession session, net.minecraft.core.BlockPos pos) {
         var level = session.getLevel();
         return level.getBlockState(pos).isAir()
                 && level.getBlockState(pos.above()).isAir()
                 && !level.getBlockState(pos.below()).isAir();
     }
+    private void scheduleDeathmatchRespawn(ServerPlayer player, GameSession session) {
+        UUID uuid = player.getUUID();
+        MinecraftServer server = player.getServer();
+        if (server == null) return;
+
+        player.setGameMode(net.minecraft.world.level.GameType.SPECTATOR);
+        sendNotice(player, "Respawning in §e3§f...");
+
+        GameTickHandler.scheduleTask(20, () -> {
+            ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+            if (p == null || !session.isActive()) return;
+            sendNotice(p, "Respawning in §e2§f...");
+        });
+        GameTickHandler.scheduleTask(40, () -> {
+            ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+            if (p == null || !session.isActive()) return;
+            sendNotice(p, "Respawning in §e1§f...");
+        });
+        GameTickHandler.scheduleTask(60, () -> {
+            ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+            if (p == null || !session.isActive()) return;
+
+            net.minecraft.core.BlockPos spawnBeacon;
+            if (session.getMode() == GameModeType.DEATHMATCH_TEAMS) {
+                String team = session.getPlayerTeam(uuid);
+                spawnBeacon = session.getDeathmatchManager().getTeamRespawnBeacon(team);
+            } else {
+                spawnBeacon = session.getDeathmatchManager().getRandomBeacon();
+            }
+
+            net.minecraft.core.BlockPos dest = spawnBeacon != null
+                    ? (findSafeSpawnNearBeacon(session, spawnBeacon) != null
+                       ? findSafeSpawnNearBeacon(session, spawnBeacon)
+                       : spawnBeacon.above(2))
+                    : p.blockPosition();
+
+            // Set SURVIVAL first so teleport takes effect on client
+            p.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+            p.setHealth(p.getMaxHealth());
+
+            // Teleport preserving look direction without resetting rotation
+            p.connection.teleport(
+                    dest.getX() + 0.5, dest.getY() + 0.1, dest.getZ() + 0.5,
+                    p.getYRot(), p.getXRot());
+
+            p.addEffect(new net.minecraft.world.effect.MobEffectInstance(
+                    net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 100, 4, false, false, false));
+            session.markSpawnImmune(uuid);
+            GunHelper.reloadAllGuns(p, session.getGunSelectionManager());
+            java.util.List<net.minecraft.resources.ResourceLocation> guns =
+                    session.getGunSelectionManager().getGunSelections(uuid);
+            java.util.List<net.minecraft.resources.ResourceLocation> allGuns =
+                    com.frosty.bedgunwars.game.GunSelectionManager.getAllAvailableGuns();
+            GunHelper.removeAllGunAmmo(p, allGuns);
+            GunHelper.giveAmmoReserves(p, guns, false);
+            sendNotice(p, "Respawned! §7(Immune for §e5s§7 — drops on attack)");
+        });
+    }
+
+    private net.minecraft.core.BlockPos findSafeSpawnNearBeacon(GameSession session, net.minecraft.core.BlockPos beacon) {
+        for (int radius = 1; radius <= 5; radius++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    for (int dy = 0; dy <= 3; dy++) {
+                        net.minecraft.core.BlockPos candidate = beacon.offset(dx, dy, dz);
+                        if (isSafeSpawn(session, candidate)) return candidate;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
 }

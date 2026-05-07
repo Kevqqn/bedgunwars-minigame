@@ -23,10 +23,15 @@ public class GameCleanupManager {
         session.getMapRestoreManager().restore(session.getLevel());
         for (java.util.UUID uuid : session.getPlayers()) {
             net.minecraft.server.level.ServerPlayer p = server.getPlayerList().getPlayer(uuid);
-            if (p != null) com.frosty.bedgunwars.network.PacketHandler.CHANNEL.send(
-                    net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> p),
-                    new com.frosty.bedgunwars.network.MinimapStopPacket());
+            if (p != null) {
+                com.frosty.bedgunwars.command.GameCommand.unlockMovement(p);
+                com.frosty.bedgunwars.network.PacketHandler.CHANNEL.send(
+                        net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> p),
+                        new com.frosty.bedgunwars.network.MinimapStopPacket());
+            }
         }
+
+        com.frosty.bedgunwars.command.GameCommand.clearLockedPositions();
 
         server.getGameRules().getRule(GameRules.RULE_KEEPINVENTORY).set(false, server);
 
@@ -44,7 +49,7 @@ public class GameCleanupManager {
             TeamManager.removeScoreboardTeams(server, session);
         }
 
-// Remove nametag teams
+        // Remove nametag teams
         ServerScoreboard scoreboard = server.getScoreboard();
         PlayerTeam solo = scoreboard.getPlayerTeam("bgw_players");
         if (solo != null) scoreboard.removePlayerTeam(solo);

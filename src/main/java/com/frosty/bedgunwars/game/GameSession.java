@@ -265,6 +265,17 @@ public class GameSession {
     private final KillstreakManager killstreakManager = new KillstreakManager();
     public KillstreakManager getKillstreakManager() { return killstreakManager; }
 
+    // Deathmatch
+    private final DeathmatchManager deathmatchManager = new DeathmatchManager();
+    private int killLimit = 30;
+    private boolean killLimitSet = false;
+
+    public DeathmatchManager getDeathmatchManager() { return deathmatchManager; }
+    public boolean isDeathmatch() { return mode.isDeathmatch(); }
+    public int getKillLimit() { return killLimit; }
+    public void setKillLimit(int killLimit) { this.killLimit = killLimit; this.killLimitSet = true; }
+    public boolean isKillLimitSet() { return killLimitSet; }
+
     private final MapRestoreManager mapRestoreManager = new MapRestoreManager();
     public MapRestoreManager getMapRestoreManager() { return mapRestoreManager; }
 
@@ -371,6 +382,8 @@ public class GameSession {
         bedUpgradeManager.clear();
         spawnImmunePlayers.clear();
         minimapStartSent = false;
+        deathmatchManager.clearKillsOnly();
+        killLimitSet = false;
     }
 
     public void hideAllNametags(MinecraftServer server) {

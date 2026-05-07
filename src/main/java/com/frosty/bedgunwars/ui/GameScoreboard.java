@@ -85,6 +85,11 @@ public class GameScoreboard {
         int total = session.getPlayers().size();
         int alive = total - session.getEliminatedPlayers().size();
 
+        // Deathmatch scoreboard
+        if (session.isDeathmatch()) {
+            return buildDeathmatchLines(player, session);
+        }
+
         lines.add("§7§m-----------");
 
         if (phase == GamePhase.PREPARATION) {
@@ -179,6 +184,72 @@ public class GameScoreboard {
 
         lines.add("§7§m----------");
 
+        return lines;
+    }
+
+
+    private static List<String> buildDeathmatchLines(ServerPlayer player, GameSession session) {
+        List<String> lines = new ArrayList<>();
+        GamePhase phase = session.getPhase();
+        int killLimit = session.getKillLimit();
+        boolean isTeams = session.getMode() == GameModeType.DEATHMATCH_TEAMS;
+
+        lines.add("§c§lDEATHMATCH");
+        lines.add("§7§m-----------");
+
+        if (phase == GamePhase.PREPARATION) {
+            int secs = session.getPrepTimeTicks() / 20;
+            lines.add("§ePhase: §fPrep");
+            lines.add("§eTime: §f" + formatTime(secs));
+            lines.add("§7Pick your loadout!");
+        } else if (phase == GamePhase.ACTIVE) {
+            int secs = session.getMatchTimeTicks() / 20;
+            lines.add("§eTime: §f" + formatTime(secs));
+            lines.add("§eTarget: §f" + killLimit + " kills");
+        } else if (phase == GamePhase.WINNER_ANNOUNCED) {
+            lines.add("§6Winner:");
+            lines.add("§f" + (session.getWinnerName() != null ? session.getWinnerName() : "?"));
+        }
+
+        lines.add("§7§m----------");
+
+        if (isTeams) {
+            // Team kill counts
+            lines.add("§eTeam Kills:");
+            for (int i = 1; i <= session.getTeamCount(); i++) {
+                String team = "Team " + i;
+                int kills = session.getDeathmatchManager().getKills(team);
+                String color = TeamManager.getTeamColor(team);
+                lines.add(color + team + " §f" + kills + "§7/" + killLimit);
+            }
+        } else {
+            // Solo — top kills leaderboard
+            lines.add("§eKills §7(" + killLimit + " to win):");
+            session.getPlayers().stream()
+                    .sorted((a, b) -> Integer.compare(
+                            session.getDeathmatchManager().getKills(b.toString()),
+                            session.getDeathmatchManager().getKills(a.toString())))
+                    .limit(8)
+                    .forEach(uuid -> {
+                        net.minecraft.server.level.ServerPlayer p =
+                                session.getLevel().getServer().getPlayerList().getPlayer(uuid);
+                        String name = p != null ? p.getName().getString() : uuid.toString().substring(0, 8);
+                        int kills = session.getDeathmatchManager().getKills(uuid.toString());
+                        boolean isViewer = uuid.equals(player.getUUID());
+                        String prefix = isViewer ? "§e▶ " : "§f";
+                        lines.add(prefix + name + " §a" + kills);
+                    });
+        }
+
+        lines.add("§7§m----------");
+
+        // Player's own stats
+        String myKillKey = isTeams ? session.getPlayerTeam(player.getUUID()) : player.getUUID().toString();
+        int myKills = myKillKey != null ? session.getDeathmatchManager().getKills(myKillKey) : 0;
+        lines.add("§eYour kills: §a" + myKills);
+        lines.add("§eDeaths: §c" + session.getDeaths(player.getUUID()));
+
+        lines.add("§7§m----------");
         return lines;
     }
 

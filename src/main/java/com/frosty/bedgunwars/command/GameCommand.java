@@ -64,6 +64,60 @@ public class GameCommand {
         return 1;
     }
 
+    public static int startDeathmatch(CommandSourceStack source, GameModeType mode, int teamCount) {
+        if (GameManager.hasGame()) {
+            source.sendFailure(Component.literal("Game already running"));
+            return 0;
+        }
+        if (!(source.getEntity() instanceof ServerPlayer player)) {
+            source.sendFailure(Component.literal("Must be a player"));
+            return 0;
+        }
+        // No beacon required at start — beacons detected on /game border
+        GameSession session = new GameSession(player.serverLevel(), player.blockPosition(), mode, player.getUUID());
+        session.setPhase(GamePhase.STARTING);
+        session.setTeamCount(teamCount);
+        GameManager.start(session);
+        session.addJoinedPlayer(player.getUUID());
+        source.sendSuccess(() -> Component.literal("Deathmatch created in " + mode.name() + " mode."), true);
+        source.sendSuccess(() -> Component.literal("Players can /game join. Then /game border <size> to detect beacons."), false);
+        source.getServer().getPlayerList().getPlayers().forEach(p ->
+                p.sendSystemMessage(Component.literal("§6[NOTICE] §eA deathmatch has been started. Type §f/game join §eto participate."))
+        );
+        return 1;
+    }
+
+    public static int setWinKills(CommandSourceStack source, int kills) {
+        if (!GameManager.hasGame()) {
+            source.sendFailure(Component.literal("No active game"));
+            return 0;
+        }
+        if (kills < 10) {
+            source.sendFailure(Component.literal("Kill limit must be at least 10"));
+            return 0;
+        }
+        if (!isHost(source)) {
+            source.sendFailure(Component.literal("Only the host can set the kill limit"));
+            return 0;
+        }
+        GameSession session = GameManager.getSession();
+        if (session == null || !session.isActive()) {
+            source.sendFailure(Component.literal("No active game"));
+            return 0;
+        }
+        if (!session.isDeathmatch()) {
+            source.sendFailure(Component.literal("This command is only for deathmatch modes"));
+            return 0;
+        }
+        if (session.getPhase() != GamePhase.STARTING) {
+            source.sendFailure(Component.literal("Kill limit can only be set during STARTING phase"));
+            return 0;
+        }
+        session.setKillLimit(kills);
+        source.sendSuccess(() -> Component.literal("Kill limit set to " + kills + ". Now run /game prep <seconds>."), true);
+        return 1;
+    }
+
     public static int joinGame(CommandSourceStack source) {
         if (!GameManager.hasGame()) {
             source.sendFailure(Component.literal("No active game to join"));
@@ -158,7 +212,47 @@ public class GameCommand {
         session.setBorderRadius(size);
         BorderManager.applyBorder(session);
         source.sendSuccess(() -> Component.literal("Border radius set to " + size), true);
-        source.sendSuccess(() -> Component.literal("Now let players join with /game join, then run /game prep <seconds>"), false);
+
+        // Deathmatch: scan for beacons inside the border and assign to teams
+        if (session.isDeathmatch()) {
+            List<net.minecraft.core.BlockPos> beacons = findBeaconsInBorder(session);
+            if (beacons.isEmpty()) {
+                source.sendFailure(Component.literal("No beacons found inside the border! Place beacons and try again."));
+                return 0;
+            }
+            int teamCount = session.getTeamCount();
+            if (session.getMode() == GameModeType.DEATHMATCH_TEAMS && beacons.size() < teamCount) {
+                source.sendFailure(Component.literal("Not enough beacons for " + teamCount + " teams. Found: " + beacons.size() + ". Need at least " + teamCount + "."));
+                return 0;
+            }
+            session.getDeathmatchManager().setAllBeacons(beacons);
+
+            // Assign one beacon per team (randomized), extras ignored
+            if (session.getMode() == GameModeType.DEATHMATCH_TEAMS) {
+                List<net.minecraft.core.BlockPos> shuffled = new java.util.ArrayList<>(beacons);
+                java.util.Collections.shuffle(shuffled);
+                for (int i = 0; i < teamCount; i++) {
+                    String teamName = "Team " + (i + 1);
+                    session.getDeathmatchManager().assignTeamBeacon(teamName, shuffled.get(i));
+                }
+                // Report assignments to host
+                StringBuilder sb = new StringBuilder("§aBeacon assignments:");
+                for (int i = 0; i < teamCount; i++) {
+                    String teamName = "Team " + (i + 1);
+                    net.minecraft.core.BlockPos b = shuffled.get(i);
+                    sb.append(TeamManager.getTeamColor(teamName)).append(teamName)
+                            .append("§f -> [").append(b.getX()).append(", ").append(b.getY()).append(", ").append(b.getZ()).append("]");
+                }
+                final String report = sb.toString();
+                source.sendSuccess(() -> Component.literal(report), false);
+            } else {
+                final int count = beacons.size();
+                source.sendSuccess(() -> Component.literal("§aFound " + count + " respawn beacons for solo deathmatch."), false);
+            }
+            source.sendSuccess(() -> Component.literal("Now run /game matchtime <seconds>, /game winkills <kills>, then /game prep <seconds>"), false);
+        } else {
+            source.sendSuccess(() -> Component.literal("Now let players join with /game join, then run /game prep <seconds>"), false);
+        }
         return 1;
     }
 
@@ -191,7 +285,11 @@ public class GameCommand {
         }
 
         if (!session.isMatchTimerSet()) {
-            source.sendFailure(Component.literal("Set match timer/game matchtime <seconds>"));
+            source.sendFailure(Component.literal("Set match timer with /game matchtime <seconds>"));
+            return 0;
+        }
+        if (session.isDeathmatch() && !session.isKillLimitSet()) {
+            source.sendFailure(Component.literal("Set kill limit with /game winkills <kills> (min 10)"));
             return 0;
         }
 
@@ -213,13 +311,42 @@ public class GameCommand {
         if (session.getMode() == GameModeType.TEAMS) {
             TeamManager.applyScoreboardTeams(player.serverLevel().getServer(), session);
         }
-        teleportPlayersToBeacon(players, session.getLevel(), session.getBeaconPos());
+        if (session.isDeathmatch()) {
+            teleportDeathmatchPlayers(players, session);
+        } else {
+            teleportPlayersToBeacon(players, session.getLevel(), session.getBeaconPos());
+        }
         giveStarterItems(session, players);
 
         session.setPhase(GamePhase.PREPARATION);
         for (ServerPlayer p : players) {
             String team = session.getPlayerTeam(p.getUUID());
-            if (team != null && session.getMode() == GameModeType.TEAMS) {
+            if (session.isDeathmatch()) {
+                // Lock movement during prep
+                lockMovement(p);
+                if (team != null && session.getMode() == GameModeType.DEATHMATCH_TEAMS) {
+                    String color = TeamManager.getTeamColor(team);
+                    String teammates = session.getPlayers().stream()
+                            .filter(u -> team.equals(session.getPlayerTeam(u)) && !u.equals(p.getUUID()))
+                            .map(u -> {
+                                ServerPlayer tp = p.getServer().getPlayerList().getPlayer(u);
+                                return tp != null ? tp.getName().getString() : "?";
+                            })
+                            .reduce((a, b) -> a + ", " + b)
+                            .orElse("none");
+                    p.connection.send(new ClientboundSetTitlesAnimationPacket(10, 60, 20));
+                    p.connection.send(new ClientboundSetTitleTextPacket(
+                            Component.literal(color + "▶ " + team)));
+                    p.connection.send(new ClientboundSetSubtitleTextPacket(
+                            Component.literal("§7Teammates: §f" + teammates + " §7| Pick your loadout!")));
+                } else {
+                    p.connection.send(new ClientboundSetTitlesAnimationPacket(10, 60, 20));
+                    p.connection.send(new ClientboundSetTitleTextPacket(
+                            Component.literal("§ePreparation Phase")));
+                    p.connection.send(new ClientboundSetSubtitleTextPacket(
+                            Component.literal("§7Pick your loadout!")));
+                }
+            } else if (team != null && session.getMode() == GameModeType.TEAMS) {
                 String color = TeamManager.getTeamColor(team);
 
                 // Build teammate list
@@ -341,7 +468,7 @@ public class GameCommand {
     }
 
     private static void assignPlayers(GameSession session, List<ServerPlayer> players, GameModeType mode) {
-        if (mode == GameModeType.SOLO) {
+        if (mode == GameModeType.SOLO || mode == GameModeType.DEATHMATCH_SOLO) {
             for (ServerPlayer player : players) {
                 session.addPlayer(player.getUUID());
                 session.setPlayerTeam(player.getUUID(), player.getGameProfile().getName());
@@ -349,6 +476,7 @@ public class GameCommand {
             }
             return;
         }
+        // TEAMS and DEATHMATCH_TEAMS both use TeamManager
         TeamManager.assignTeams(session, players, session.getTeamCount());
     }
 
@@ -390,6 +518,28 @@ public class GameCommand {
             double z = beacon.getZ() + 0.5 + (index / 4);
             player.teleportTo(level, x, y, z, player.getYRot(), player.getXRot());
             index++;
+        }
+    }
+
+    private static void teleportDeathmatchPlayers(List<ServerPlayer> players, GameSession session) {
+        if (session.getMode() == GameModeType.DEATHMATCH_TEAMS) {
+            for (ServerPlayer player : players) {
+                String team = session.getPlayerTeam(player.getUUID());
+                net.minecraft.core.BlockPos beacon = session.getDeathmatchManager().getTeamRespawnBeacon(team);
+                if (beacon == null) beacon = session.getBeaconPos();
+                player.teleportTo(session.getLevel(),
+                        beacon.getX() + 0.5, beacon.getY() + 2, beacon.getZ() + 0.5,
+                        player.getYRot(), player.getXRot());
+            }
+        } else {
+            // Solo — each player teleports to a random beacon
+            for (ServerPlayer player : players) {
+                net.minecraft.core.BlockPos beacon = session.getDeathmatchManager().getRandomBeacon();
+                if (beacon == null) beacon = session.getBeaconPos();
+                player.teleportTo(session.getLevel(),
+                        beacon.getX() + 0.5, beacon.getY() + 2, beacon.getZ() + 0.5,
+                        player.getYRot(), player.getXRot());
+            }
         }
     }
 
@@ -439,10 +589,12 @@ public class GameCommand {
                 player.getInventory().armor.set(2, new ItemStack(Items.NETHERITE_CHESTPLATE));
             }
 
-            // Bed — only for designated bed owner in teams
-            Item bedItem = getBedItemForPlayer(session, player.getUUID());
-            if (bedItem != null) {
-                player.getInventory().setItem(0, new ItemStack(bedItem, 1));
+            // Bed — only for designated bed owner in non-deathmatch teams
+            if (!session.isDeathmatch()) {
+                Item bedItem = getBedItemForPlayer(session, player.getUUID());
+                if (bedItem != null) {
+                    player.getInventory().setItem(0, new ItemStack(bedItem, 1));
+                }
             }
 
             player.getInventory().setItem(1, new ItemStack(Items.GOLDEN_APPLE, 32));
@@ -475,4 +627,68 @@ public class GameCommand {
                 }
         return null;
     }
+    // ── Deathmatch helpers 
+
+    static List<net.minecraft.core.BlockPos> findBeaconsInBorder(GameSession session) {
+        List<net.minecraft.core.BlockPos> found = new ArrayList<>();
+        net.minecraft.server.level.ServerLevel level = session.getLevel();
+        // Use beaconPos (host position = border center) not world border object
+        // since the border object may not have updated yet
+        net.minecraft.core.BlockPos center = session.getBeaconPos();
+        int radius = session.getBorderRadius();
+        int minY = level.getMinBuildHeight();
+        int maxY = level.getMaxBuildHeight();
+        for (int x = center.getX() - radius; x <= center.getX() + radius; x++) {
+            for (int z = center.getZ() - radius; z <= center.getZ() + radius; z++) {
+                for (int y = minY; y < maxY; y++) {
+                    net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(x, y, z);
+                    if (level.getBlockState(pos).is(net.minecraft.world.level.block.Blocks.BEACON)) {
+                        found.add(pos);
+                    }
+                }
+            }
+        }
+        return found;
+    }
+
+    public static void lockMovement(ServerPlayer player) {
+        // Store current position as the locked position
+        lockedPositions.put(player.getUUID(), player.position());
+    }
+
+    public static void unlockMovement(ServerPlayer player) {
+        lockedPositions.remove(player.getUUID());
+    }
+
+    private static final java.util.Map<java.util.UUID, net.minecraft.world.phys.Vec3> lockedPositions
+            = new java.util.HashMap<>();
+
+    public static void clearLockedPositions() {
+        lockedPositions.clear();
+    }
+
+    // Called every tick from GameTickHandler during PREPARATION
+    public static void tickLockedPlayers(net.minecraft.server.MinecraftServer server) {
+        lockedPositions.forEach((uuid, pos) -> {
+            net.minecraft.server.level.ServerPlayer p = server.getPlayerList().getPlayer(uuid);
+            if (p != null) {
+                p.teleportTo(p.serverLevel(), pos.x, pos.y, pos.z, p.getYRot(), p.getXRot());
+            }
+        });
+    }
+    /** Resolves a DeathmatchManager key (UUID string or team name) to a display name. */
+    public static String resolveLeaderName(GameSession session, String key) {
+        if (session.getMode() == GameModeType.DEATHMATCH_SOLO) {
+            try {
+                java.util.UUID uuid = java.util.UUID.fromString(key);
+                net.minecraft.server.level.ServerPlayer p =
+                        session.getLevel().getServer().getPlayerList().getPlayer(uuid);
+                return p != null ? p.getName().getString() : key.substring(0, 8);
+            } catch (IllegalArgumentException e) {
+                return key;
+            }
+        }
+        return key; // team name
+    }
+
 }

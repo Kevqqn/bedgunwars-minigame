@@ -72,6 +72,7 @@ public class GameTickHandler {
         }
 
         if (phase == GamePhase.PREPARATION) {
+            com.frosty.bedgunwars.command.GameCommand.tickLockedPlayers(event.getServer());
             if (!session.isMinimapStartSent()) {
                 session.setMinimapStartSent(true);
                 com.frosty.bedgunwars.network.MinimapStartPacket pkt = new com.frosty.bedgunwars.network.MinimapStartPacket(
@@ -115,8 +116,16 @@ public class GameTickHandler {
                 event.getServer().getGameRules().getRule(GameRules.RULE_KEEPINVENTORY).set(true, event.getServer());
                 for (ServerPlayer p : event.getServer().getPlayerList().getPlayers()) {
                     SoundHelper.playNoteClick(p, SoundHelper.noteToPitch(25));
+                    // Unlock movement for deathmatch
+                    if (session.isDeathmatch()) {
+                        com.frosty.bedgunwars.command.GameCommand.unlockMovement(p);
+                    }
                 }
-                broadcast(event.getServer(), "Game has started! Destroy enemy beds!");
+                if (session.isDeathmatch()) {
+                    broadcast(event.getServer(), "Deathmatch has started! First to " + session.getKillLimit() + " kills wins!");
+                } else {
+                    broadcast(event.getServer(), "Game has started! Destroy enemy beds!");
+                }
             }
             GameScoreboard.update(session);
         }
@@ -128,7 +137,16 @@ public class GameTickHandler {
             int secondsLeft = ticksLeft / 20;
 
             float progress = initialTicks > 0 ? (float) ticksLeft / initialTicks : 0f;
-            BossBarManager.show(event.getServer(), "Match: " + formatTime(secondsLeft) + " remaining", progress);
+            if (session.isDeathmatch()) {
+                String leader = session.getDeathmatchManager().getLeader();
+                String leaderName = leader != null ? com.frosty.bedgunwars.command.GameCommand.resolveLeaderName(session, leader) : "None";
+                int leaderKills = leader != null ? session.getDeathmatchManager().getKills(leader) : 0;
+                BossBarManager.show(event.getServer(),
+                        "DM │ " + formatTime(secondsLeft) + " │ Leader: " + leaderName + " (" + leaderKills + "/" + session.getKillLimit() + " kills)",
+                        progress);
+            } else {
+                BossBarManager.show(event.getServer(), "Match: " + formatTime(secondsLeft) + " remaining", progress);
+            }
 
             if (ticksLeft == 60 * 20 || ticksLeft == 30 * 20 || ticksLeft == 10 * 20
                     || ticksLeft == 5 * 20 || ticksLeft == 4 * 20 || ticksLeft == 3 * 20
@@ -145,11 +163,34 @@ public class GameTickHandler {
             }
 
             if (ticksLeft <= 0) {
-                startEndgame(event.getServer(), session);
+                if (session.isDeathmatch()) {
+                    WinManager.checkDeathmatchTimerWinner(session);
+                } else {
+                    startEndgame(event.getServer(), session);
+                }
             }
             GameScoreboard.update(session);
-            tickBedUpgrades(event.getServer(), session);
+            if (!session.isDeathmatch()) {
+                tickBedUpgrades(event.getServer(), session);
+            }
             session.getKillstreakManager().tick(event.getServer(), session);
+            // Drop spawn immunity if deathmatch player moves
+            if (session.isDeathmatch()) {
+                for (java.util.UUID uuid : session.getPlayers()) {
+                    if (!session.isSpawnImmune(uuid)) continue;
+                    net.minecraft.server.level.ServerPlayer p = event.getServer().getPlayerList().getPlayer(uuid);
+                    if (p == null) continue;
+                    net.minecraft.core.BlockPos cur = p.blockPosition();
+                    net.minecraft.core.BlockPos last = session.getLastKnownPositions().get(uuid);
+                    if (last != null && !cur.equals(last)) {
+                        session.clearSpawnImmune(uuid);
+                        p.removeEffect(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE);
+                        // sendNotice isn't accessible here, use direct message
+                        p.sendSystemMessage(net.minecraft.network.chat.Component.literal("§6[NOTICE] §fSpawn immunity dropped!"));
+                    }
+                    session.getLastKnownPositions().put(uuid, cur);
+                }
+            }
         }
 
         else if (phase == GamePhase.ENDING) {
