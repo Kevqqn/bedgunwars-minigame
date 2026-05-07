@@ -35,13 +35,21 @@ public class PlayerDeathHandler {
                 session.addMoney(killer.getUUID(), 150);
                 killer.sendSystemMessage(Component.literal("§a+$150 §7(Kill)"));
                 session.getKillstreakManager().onKill(killer.getUUID(), killer.getServer(), session);
-                // Broadcast death message to all players
-                String killerName = killer.getName().getString();
-                String victimName = player.getName().getString();
-                String weapon = getKillerWeapon(killer);
-                Component deathMsg = Component.literal("§c☠ §f" + killerName + " §7killed §f" + victimName + " §7with §e" + weapon);
-                for (ServerPlayer p : killer.getServer().getPlayerList().getPlayers()) {
-                    p.sendSystemMessage(deathMsg);
+
+                // Death feed packet — sends gun HUD texture + names to all clients
+                net.minecraft.world.item.ItemStack held = killer.getMainHandItem();
+                if (held.getItem() instanceof com.tacz.guns.api.item.IGun iGun) {
+                    net.minecraft.resources.ResourceLocation gunId = iGun.getGunId(held);
+                    if (gunId != null) {
+                        com.frosty.bedgunwars.network.DeathFeedPacket pkt =
+                                new com.frosty.bedgunwars.network.DeathFeedPacket(
+                                        killer.getName().getString(),
+                                        player.getName().getString(),
+                                        gunId.getNamespace(),
+                                        gunId.getPath());
+                        com.frosty.bedgunwars.network.PacketHandler.sendToAllClients(
+                                killer.getServer(), pkt);
+                    }
                 }
 
                 // Deathmatch kill tracking

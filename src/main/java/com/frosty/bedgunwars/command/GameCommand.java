@@ -384,16 +384,21 @@ public class GameCommand {
             source.sendFailure(Component.literal("No active game."));
             return 0;
         }
+        if (session.getPhase() != GamePhase.STARTING) {
+            source.sendFailure(Component.literal("Can only force join during STARTING phase."));
+            return 0;
+        }
         int count = 0;
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
-            if (!session.getPlayers().contains(player.getUUID())) {
-                session.addPlayer(player.getUUID());
-                player.sendSystemMessage(Component.literal("§aYou have been force-joined to the game."));
+            if (!session.isJoined(player.getUUID())) {
+                if (!player.serverLevel().dimension().equals(session.getLevel().dimension())) continue;
+                session.addJoinedPlayer(player.getUUID());
+                player.sendSystemMessage(Component.literal("§aYou have been force-joined to the game lobby."));
                 count++;
             }
         }
         final int c = count;
-        source.sendSuccess(() -> Component.literal("§aForce-joined §e" + c + " §aplayers."), false);
+        source.sendSuccess(() -> Component.literal("§aForce-joined §e" + c + " §aplayers to the lobby."), false);
         return count;
     }
 

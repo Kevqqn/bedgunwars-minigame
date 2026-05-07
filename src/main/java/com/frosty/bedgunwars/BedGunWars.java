@@ -42,6 +42,7 @@ public class BedGunWars {
         SOUNDS.register(context.getModEventBus());
         if (net.minecraftforge.fml.loading.FMLEnvironment.dist.isClient()) {
             MinecraftForge.EVENT_BUS.register(new com.frosty.bedgunwars.minimap.MinimapRenderer());
+            MinecraftForge.EVENT_BUS.register(new com.frosty.bedgunwars.client.DeathFeedRenderer());
             com.frosty.bedgunwars.client.TabStatsClientProxy.register();
             com.frosty.bedgunwars.client.KillstreakClientProxy.register();
         }

@@ -49,6 +49,8 @@ public class PacketHandler {
                 LoadoutPacket::encode, LoadoutPacket::decode, LoadoutPacket::handle);
         CHANNEL.registerMessage(id++, LoadoutSyncPacket.class,
                 LoadoutSyncPacket::encode, LoadoutSyncPacket::decode, LoadoutSyncPacket::handle);
+        CHANNEL.registerMessage(id++, DeathFeedPacket.class,
+                DeathFeedPacket::encode, DeathFeedPacket::decode, DeathFeedPacket::handle);
     }
 
     public static void sendToClient(net.minecraft.server.level.ServerPlayer player, Object packet) {

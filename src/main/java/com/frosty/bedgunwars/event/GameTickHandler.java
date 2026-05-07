@@ -128,6 +128,7 @@ public class GameTickHandler {
                 }
             }
             GameScoreboard.update(session);
+            tickVoidCheck(event.getServer(), session);
         }
 
         else if (phase == GamePhase.ACTIVE) {
@@ -379,6 +380,22 @@ public class GameTickHandler {
             }
 
             lastPos.put(uuid, currentPos);
+        }
+    }
+
+    private void tickVoidCheck(MinecraftServer server, GameSession session) {
+        for (UUID uuid : session.getPlayers()) {
+            if (session.isEliminated(uuid)) continue;
+            ServerPlayer player = server.getPlayerList().getPlayer(uuid);
+            if (player == null) continue;
+            if (player.getY() < -64) {
+                BlockPos beacon = session.getBeaconPos();
+                player.teleportTo(player.serverLevel(),
+                        beacon.getX() + 0.5, beacon.getY() + 2, beacon.getZ() + 0.5,
+                        player.getYRot(), player.getXRot());
+                player.sendSystemMessage(Component.literal("§c[NOTICE] §fHow did you fell? Teleporting back"));
+
+            }
         }
     }
 
