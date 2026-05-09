@@ -27,9 +27,10 @@ public class RequestGunMenuPacket {
 
             GameSession session = GameManager.getSession();
             if (session == null || !session.isActive()) return;
-            if (session.getPhase() != GamePhase.PREPARATION) return;
+            if (session.getPhase() != GamePhase.PREPARATION && session.getPhase() != GamePhase.ACTIVE) return;
             if (!session.getPlayers().contains(player.getUUID())) return;
 
+            boolean activePhase = session.getPhase() == GamePhase.ACTIVE;
             GunSelectionManager gsm = session.getGunSelectionManager();
             UUID uuid = player.getUUID();
 
@@ -45,7 +46,7 @@ public class RequestGunMenuPacket {
                     allGuns, currentGuns,
                     allAtt, new java.util.ArrayList<>(),
                     allThrow, currentThrow,
-                    gunAttachments));
+                    gunAttachments, activePhase));
 
             // Also send current loadouts
             LoadoutSyncPacket.send(player,

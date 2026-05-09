@@ -44,7 +44,12 @@ public class LoadoutPacket {
                 case DELETE -> lm.deleteLoadout(player.getUUID(), pkt.index);
                 case RENAME -> lm.renameLoadout(player.getUUID(), pkt.index, pkt.name);
                 case APPLY  -> {
-                    // Capture OLD guns BEFORE applying loadout
+                    if (session.getPhase() == com.frosty.bedgunwars.game.GamePhase.ACTIVE) {
+                        lm.applyLoadout(player.getUUID(), pkt.index, gsm);
+                        player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                                "§e[Loadout] §fApplied. Takes effect on next respawn."));
+                        break;
+                    }
                     java.util.List<net.minecraft.resources.ResourceLocation> oldGuns =
                             new java.util.ArrayList<>(gsm.getGunSelections(player.getUUID()));
 
@@ -119,7 +124,7 @@ public class LoadoutPacket {
                     PacketHandler.sendToClient(player, new OpenGunMenuPacket(
                             allGuns, guns, allAtt, new java.util.ArrayList<>(),
                             allThrow, throwables,
-                            RequestGunMenuPacket.buildAttachmentMap(player.getUUID(), gsm)));
+                            RequestGunMenuPacket.buildAttachmentMap(player.getUUID(), gsm), false));
                 }
             }
             // Send updated loadout list back to client

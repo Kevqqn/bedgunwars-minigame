@@ -197,7 +197,7 @@ public class PlayerDeathHandler {
             p.addEffect(new net.minecraft.world.effect.MobEffectInstance(
                     net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 100, 4, false, false, false));
             session.markSpawnImmune(uuid);
-            GunHelper.reloadAllGuns(p, session.getGunSelectionManager());
+            applyLoadoutToPlayer(p, uuid, session);
             sendNotice(p, "Respawned! §7(Immune for §e5s§7 — drops on attack)");
         });
     }
@@ -289,13 +289,7 @@ public class PlayerDeathHandler {
             p.addEffect(new net.minecraft.world.effect.MobEffectInstance(
                     net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 100, 4, false, false, false));
             session.markSpawnImmune(uuid);
-            GunHelper.reloadAllGuns(p, session.getGunSelectionManager());
-            java.util.List<net.minecraft.resources.ResourceLocation> guns =
-                    session.getGunSelectionManager().getGunSelections(uuid);
-            java.util.List<net.minecraft.resources.ResourceLocation> allGuns =
-                    com.frosty.bedgunwars.game.GunSelectionManager.getAllAvailableGuns();
-            GunHelper.removeAllGunAmmo(p, allGuns);
-            GunHelper.giveAmmoReserves(p, guns, false);
+            applyLoadoutToPlayer(p, uuid, session);
             sendNotice(p, "Respawned! §7(Immune for §e5s§7 — drops on attack)");
         });
     }
@@ -313,5 +307,39 @@ public class PlayerDeathHandler {
         }
         return null;
     }
-
+    private void applyLoadoutToPlayer(ServerPlayer p, UUID uuid, GameSession session) {
+        for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
+            net.minecraft.world.item.ItemStack s = p.getInventory().getItem(i);
+            if (!s.isEmpty() && s.getItem() instanceof com.tacz.guns.api.item.IGun)
+                p.getInventory().setItem(i, net.minecraft.world.item.ItemStack.EMPTY);
+        }
+        java.util.List<net.minecraft.resources.ResourceLocation> guns =
+                session.getGunSelectionManager().getGunSelections(uuid);
+        for (int i = 0; i < guns.size(); i++) {
+            net.minecraft.resources.ResourceLocation id = guns.get(i);
+            net.minecraft.world.item.ItemStack stack = GunHelper.buildGun(id);
+            if (stack.isEmpty()) continue;
+            if (stack.getItem() instanceof com.tacz.guns.api.item.IGun iGun) {
+                var atts = session.getGunSelectionManager().getGunAttachments(uuid, i);
+                for (var e : atts.entrySet()) {
+                    try {
+                        net.minecraft.world.item.ItemStack att =
+                                com.tacz.guns.api.item.builder.AttachmentItemBuilder
+                                        .create().setId(e.getValue()).build();
+                        if (!att.isEmpty() && iGun.allowAttachment(stack, att))
+                            iGun.installAttachment(stack, att);
+                    } catch (Exception ignored) {}
+                }
+                com.tacz.guns.api.TimelessAPI.getCommonGunIndex(id).ifPresent(idx -> {
+                    int max = idx.getGunData().getAmmoAmount();
+                    if (max > 0) iGun.setCurrentAmmoCount(stack, max);
+                });
+            }
+            p.getInventory().add(stack);
+        }
+        java.util.List<net.minecraft.resources.ResourceLocation> allGuns =
+                com.frosty.bedgunwars.game.GunSelectionManager.getAllAvailableGuns();
+        GunHelper.removeAllGunAmmo(p, allGuns);
+        GunHelper.giveAmmoReserves(p, guns, false);
+    }
 }

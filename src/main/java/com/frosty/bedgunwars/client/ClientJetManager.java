@@ -28,10 +28,10 @@ public class ClientJetManager {
     private static final ResourceLocation TEXTURE =
             ResourceLocation.fromNamespaceAndPath("bedgunwars", "textures/entity/plane.png");
 
-    // Cached model instance — created once
+    // Cached model
     private static com.frosty.bedgunwars.entity.JetModel<?> model = null;
 
-    // ── Independent moving sound  
+    // Sound, saperated from jet pos
 
     private static class JetSound extends AbstractTickableSoundInstance {
         private double sx, sy, sz;
@@ -71,7 +71,7 @@ public class ClientJetManager {
         @Override public boolean canStartSilent() { return true; }
     }
 
-    // ── Client jet data  ─────────
+    // Client jet data
 
     static class ClientJet {
         double prevX, prevY, prevZ;
@@ -110,7 +110,7 @@ public class ClientJetManager {
         float getYaw() { return (float) -(Math.toDegrees(Math.atan2(-dx, dz))); }
     }
 
-    // ── Pending jets  
+    // Pending jets
 
     private static class PendingJet {
         final double x, y, z, dx, dz;
@@ -126,8 +126,6 @@ public class ClientJetManager {
 
     private static final List<PendingJet> pendingJets = new ArrayList<>();
     private static final List<ClientJet> jets = new ArrayList<>();
-
-    // ── Public API  ───
 
     public static void queueJet(double x, double y, double z,
                                 double dx, double dz, float speed, int delay) {
@@ -148,7 +146,7 @@ public class ClientJetManager {
         pendingJets.clear();
     }
 
-    // ── Tick  ─────────
+    // Tick
 
     @SubscribeEvent
     public void onClientTick(TickEvent.ClientTickEvent event) {
@@ -174,7 +172,7 @@ public class ClientJetManager {
         clearAll();
     }
 
-    // ── Render  ───────
+    // Render
 
     @SubscribeEvent
     public void onRenderLevel(RenderLevelStageEvent event) {

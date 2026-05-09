@@ -101,9 +101,9 @@ public class GunHelper {
 //        return item;
 //    }
 
-    // -------------------------------------------------------------------------
+    
     // Gun stats for tooltip
-    // -------------------------------------------------------------------------
+    
 
     @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
     public static java.util.List<net.minecraft.network.chat.Component> getGunStats(ResourceLocation gunId) {
@@ -113,10 +113,14 @@ public class GunHelper {
                 Object data = index.getGunData();
                 if (data == null) return;
                 Class<?> cls = data.getClass();
-
-                // Damage
-                float damage = reflectFloat(cls, data, "getDamage", "getBulletDamage", "getHitDamage");
-                if (damage > 0) lines.add(stat("Damage", String.format("%.0f", damage)));
+                // Damage — via BulletData.getDamageAmount()
+                try {
+                    Object bulletData = cls.getMethod("getBulletData").invoke(data);
+                    if (bulletData != null) {
+                        float dmg = ((Number) bulletData.getClass().getMethod("getDamageAmount").invoke(bulletData)).floatValue();
+                        if (dmg > 0) lines.add(stat("Damage", String.format("%.0f", dmg)));
+                    }
+                } catch (Exception ignored) {}
 
                 // Fire rate (RPM)
                 int rpm = reflectInt(cls, data, "getRoundsPerMinute", "getFireRate", "getRpm");
@@ -184,9 +188,9 @@ public class GunHelper {
         };
     }
 
-    // -------------------------------------------------------------------------
+    
     // Ammo detection and giving
-    // -------------------------------------------------------------------------
+    
 
     /** Returns the ammo item ResourceLocation for a gun, via reflection on getGunData() */
     public static ResourceLocation getAmmoId(ResourceLocation gunId) {

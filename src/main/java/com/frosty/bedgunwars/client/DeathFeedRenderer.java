@@ -29,8 +29,6 @@ public class DeathFeedRenderer {
 
     private static final List<DeathFeedEntry> entries = new ArrayList<>();
 
-    // ── Public API called from packet handler
-
     public static void addEntry(String killerName, String victimName,
                                 String gunNamespace, String gunPath) {
         if (entries.size() >= MAX_ENTRIES) entries.remove(entries.size() - 1);
@@ -40,7 +38,7 @@ public class DeathFeedRenderer {
                 getCurrentTick()));
     }
 
-    // ── Render
+    // Render
 
     @SubscribeEvent
     public void onRenderGui(RenderGuiOverlayEvent.Post event) {
@@ -67,7 +65,7 @@ public class DeathFeedRenderer {
 
         int feedX = isLeft ? margin : screenW - 200 - margin;
 
-        // Y: below minimap if top, above feed stack if bottom
+        // Y, below minimap if top, above feed stack if bottom
         int feedStartY;
         if (isTop) {
             feedStartY = margin + mapSize + 10;
@@ -132,7 +130,7 @@ public class DeathFeedRenderer {
         return mc.level != null ? mc.level.getGameTime() : 0L;
     }
 
-    // ── Entry record 
+    // Entry record
 
     public record DeathFeedEntry(
             String killerName,

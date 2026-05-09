@@ -217,7 +217,8 @@ public class GameCommand {
         if (session.isDeathmatch()) {
             List<net.minecraft.core.BlockPos> beacons = findBeaconsInBorder(session);
             if (beacons.isEmpty()) {
-                source.sendFailure(Component.literal("No beacons found inside the border! Place beacons and try again."));
+                String blockName = session.getMode() == GameModeType.DEATHMATCH_TEAMS ? "respawn anchors" : "beacons";
+                source.sendFailure(Component.literal("No " + blockName + " found inside the border! Place them and try again."));
                 return 0;
             }
             int teamCount = session.getTeamCount();
@@ -572,7 +573,7 @@ public class GameCommand {
         for (ServerPlayer player : players) {
             player.getInventory().clearContent();
 
-            boolean isTeams = session.getMode() == GameModeType.TEAMS;
+            boolean isTeams = session.getMode() == GameModeType.TEAMS || session.getMode() == GameModeType.DEATHMATCH_TEAMS;
             String team = session.getPlayerTeam(player.getUUID());
 
             // Helmet, leggings, boots — always netherite
@@ -647,8 +648,11 @@ public class GameCommand {
             for (int z = center.getZ() - radius; z <= center.getZ() + radius; z++) {
                 for (int y = minY; y < maxY; y++) {
                     net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(x, y, z);
-                    if (level.getBlockState(pos).is(net.minecraft.world.level.block.Blocks.BEACON)) {
-                        found.add(pos);
+                    net.minecraft.world.level.block.state.BlockState state = level.getBlockState(pos);
+                    if (session.getMode() == GameModeType.DEATHMATCH_TEAMS) {
+                        if (state.is(net.minecraft.world.level.block.Blocks.RESPAWN_ANCHOR)) found.add(pos);
+                    } else {
+                        if (state.is(net.minecraft.world.level.block.Blocks.BEACON)) found.add(pos);
                     }
                 }
             }
@@ -681,7 +685,7 @@ public class GameCommand {
             }
         });
     }
-    /** Resolves a DeathmatchManager key (UUID string or team name) to a display name. */
+    // Resolves a DeathmatchManager key (UUID string or team name) to a display name.
     public static String resolveLeaderName(GameSession session, String key) {
         if (session.getMode() == GameModeType.DEATHMATCH_SOLO) {
             try {

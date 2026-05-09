@@ -14,11 +14,8 @@ import net.minecraftforge.api.distmarker.OnlyIn;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Fullscreen air support point selection.
- * Uses Screen so Minecraft handles cursor visibility and ESC correctly.
- * Player is frozen via FrozenInput but can get shot.
- */
+// Fullscreen air support point selection, Uses Screen so Minecraft handles cursor visibility and ESC correctly.
+
 @OnlyIn(Dist.CLIENT)
 public class AirSupportMapScreen extends Screen {
 
@@ -34,7 +31,6 @@ public class AirSupportMapScreen extends Screen {
     @Override
     public boolean isPauseScreen() { return false; } // world keeps running
 
-    /** Called by KillstreakEffectPacket on the render thread */
     public static void open() {
         Minecraft mc = Minecraft.getInstance();
         mc.setScreen(new AirSupportMapScreen());

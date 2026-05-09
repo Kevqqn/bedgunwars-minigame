@@ -101,7 +101,7 @@ public class SelectAttachmentPacket {
                     allGuns, currentGuns,
                     allAtt, new ArrayList<>(),
                     allThrow, currentThrow,
-                    RequestGunMenuPacket.buildAttachmentMap(uuid, gsm)));
+                    RequestGunMenuPacket.buildAttachmentMap(uuid, gsm), false));
         });
         ctx.get().setPacketHandled(true);
     }
