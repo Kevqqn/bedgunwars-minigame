@@ -24,7 +24,9 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.repository.Pack;
 import net.minecraft.world.item.ItemDisplayContext;
+import com.frosty.bedgunwars.client.ClientTips;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
@@ -121,6 +123,7 @@ public class GunSelectionScreen extends Screen {
     private boolean namingNew = false;
     private int confirmDeleteIndex = -1;
     private int selectedLoadoutIndex = -1;
+    private int modifyingLoadoutIndex = -1; // -1 = not modifying
 
     public static void updateLoadouts(
             java.util.List<com.frosty.bedgunwars.game.LoadoutManager.Loadout> loadouts) {
@@ -208,8 +211,9 @@ public class GunSelectionScreen extends Screen {
         this.allAttachments.clear(); this.allAttachments.addAll(allAttachments);
         this.allThrowables.clear(); this.allThrowables.addAll(allThrowables);
         this.selectedThrowables.clear(); this.selectedThrowables.addAll(currentThrowables);
+        this.gunAttachments.clear();
         gunAttachments.forEach((slot, typeMap) ->
-                this.gunAttachments.merge(slot, new HashMap<>(typeMap), (o, n) -> { o.putAll(n); return o; }));
+                this.gunAttachments.put(slot, new HashMap<>(typeMap)));
         this.attachmentEditorGunSlot = savedSlot;
         if (savedSlot >= 0 && savedSlot < this.selectedGuns.size())
             rebuildEditorCache(savedSlot);
@@ -395,6 +399,100 @@ public class GunSelectionScreen extends Screen {
         renderLoadoutPanel(g, mouseX, mouseY);
 
         super.render(g, mouseX, mouseY, partialTick);
+        renderHoverTooltip(g, mouseX, mouseY);
+        ClientTips.renderInScreen(g, this);
+    }
+
+    private void renderHoverTooltip(GuiGraphics g, int mx, int my) {
+        ItemStack tooltipStack = ItemStack.EMPTY;
+
+        if (activeTab == 0 || activeTab == 2) {
+            // Item list rows
+            ResourceLocation hovered = computeHoveredItem(mx, my);
+            if (hovered != null) {
+                tooltipStack = activeTab == 2 ? buildThrowableStack(hovered) : buildGunStack(hovered);
+            }
+        }
+
+        if (activeTab == 1) {
+            if (inAttachmentEditor()) {
+                // Attachment editor rows
+                List<AttachmentType> visibleTypes = getVisibleTypes();
+                Map<AttachmentType, List<ResourceLocation>> byType = buildByType();
+                Map<String, String> equipped = gunAttachments.getOrDefault(attachmentEditorGunSlot, new HashMap<>());
+                int numCols = Math.min(visibleTypes.size(), 3);
+                if (numCols > 0) {
+                    int areaW = panelX() - 16 - LIST_X;
+                    int areaH = (this.height - LIST_Y - 40) / ((visibleTypes.size() + 2) / 3);
+                    int colW = (areaW - (numCols - 1) * 6) / numCols;
+                    int colItemH = 22, colHeaderH = 18;
+                    for (int ci = 0; ci < visibleTypes.size(); ci++) {
+                        AttachmentType type = visibleTypes.get(ci);
+                        int row = ci / 3, col = ci % 3;
+                        int colX = LIST_X + col * (colW + 6);
+                        int colY = LIST_Y + row * (areaH + 6);
+                        if (mx < colX || mx >= colX + colW || my < colY || my >= colY + areaH) continue;
+                        int itemAreaY = colY + colHeaderH + 2;
+                        String equippedId = equipped.get(type.name());
+                        List<ResourceLocation> items = byType.getOrDefault(type, new ArrayList<>());
+                        List<ResourceLocation> unequipped = new ArrayList<>();
+                        for (ResourceLocation id : items)
+                            if (!id.toString().equals(equippedId)) unequipped.add(id);
+                        // Check equipped pinned row
+                        if (equippedId != null) {
+                            if (my >= itemAreaY && my < itemAreaY + colItemH) {
+                                try { tooltipStack = buildAttachmentStack(ResourceLocation.parse(equippedId)); } catch (Exception ignored) {}
+                                break;
+                            }
+                            itemAreaY += colItemH + 2;
+                        }
+                        // Check unequipped rows
+                        int innerH = areaH - colHeaderH - 4;
+                        int visibleItems = innerH / colItemH;
+                        int listEndY = colY + areaH - 2;
+                        for (int ri = 0; ri < visibleItems && ri + colScrollOffsets[ci] < unequipped.size(); ri++) {
+                            int ry = itemAreaY + ri * colItemH;
+                            if (ry + colItemH > listEndY) break;
+                            if (my >= ry && my < ry + colItemH) {
+                                tooltipStack = buildAttachmentStack(unequipped.get(ri + colScrollOffsets[ci]));
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                }
+            } else {
+                // Gun picker cards — tooltip on gun icon area
+                int cardW = 155, cardH = 110, gap = 8;
+                int availW = panelX() - 10 - LIST_X;
+                int totalW = MAX_GUN_SLOTS * cardW + (MAX_GUN_SLOTS - 1) * gap;
+                int startX = LIST_X + Math.max(0, (availW - totalW) / 2);
+                int startY = LIST_Y + 30;
+                for (int i = 0; i < MAX_GUN_SLOTS && i < selectedGuns.size(); i++) {
+                    int cx = startX + i * (cardW + gap);
+                    if (mx >= cx && mx < cx + cardW && my >= startY && my < startY + cardH) {
+                        tooltipStack = buildGunStack(selectedGuns.get(i));
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Loadout panel — weapon slots
+        int px = panelX();
+        int iy = LIST_Y - 22 + 20 + 6 + 12;
+        for (int i = 0; i < selectedGuns.size(); i++) {
+            int slotH = 42;
+            if (mx >= px + 20 && mx < px + 36 && my >= iy && my < iy + slotH) {
+                tooltipStack = buildGunStack(selectedGuns.get(i));
+                break;
+            }
+            iy += slotH + 4;
+        }
+
+        if (!tooltipStack.isEmpty()) {
+            g.renderTooltip(font, tooltipStack, mx, my);
+        }
     }
 
 
@@ -403,9 +501,16 @@ public class GunSelectionScreen extends Screen {
     private void renderTitleBar(GuiGraphics g) {
         g.fill(0, 0, this.width, 22, 0xFF0A0A0A);
         g.fill(0, 21, this.width, 22, 0xFFFFAA00);
-        g.drawString(font, "⚔  LOADOUT SELECTION", 10, 6, 0xFFAA00);
-        String sub = "BedGunWars · ESC to close";
-        g.drawString(font, sub, this.width - font.width(sub) - 10, 8, 0x666666);
+        if (modifyingLoadoutIndex >= 0 && modifyingLoadoutIndex < clientLoadouts.size()) {
+            String modName = clientLoadouts.get(modifyingLoadoutIndex).name;
+            g.drawString(font, "MODIFYING  §e" + modName, 10, 6, 0xFF888888);
+            String hint = "§7Make changes, then press  §a+ Save Loadout  §7to apply";
+            g.drawString(font, hint, this.width - font.width(hint.replaceAll("§.", "")) - 10, 8, 0x555555);
+        } else {
+            g.drawString(font, "LOADOUT SELECTION", 10, 6, 0xFFAA00);
+            String sub = "Loadout · ESC to close";
+            g.drawString(font, sub, this.width - font.width(sub) - 10, 8, 0x666666);
+        }
     }
 
 
@@ -424,12 +529,14 @@ public class GunSelectionScreen extends Screen {
         int tabY = 24;
         for (int t = 0; t < 4; t++) {
             int tx = LIST_X + t * (TAB_W + 2);
+            boolean isLoadoutsTab = t == 3;
+            boolean locked = modifyingLoadoutIndex >= 0 && isLoadoutsTab;
             boolean active  = activeTab == t;
-            boolean hovered = mx >= tx && mx < tx + TAB_W && my >= tabY && my < tabY + TAB_H;
+            boolean hovered = !locked && mx >= tx && mx < tx + TAB_W && my >= tabY && my < tabY + TAB_H;
             g.fill(tx, tabY, tx + TAB_W, tabY + TAB_H,
-                    active ? 0xFF333333 : (hovered ? 0xFF222222 : 0xFF161616));
-            if (active) g.fill(tx, tabY + TAB_H - 2, tx + TAB_W, tabY + TAB_H, 0xFFFFAA00);
-            g.drawCenteredString(font, (active ? "§e" : "§7") + labels[t],
+                    locked ? 0xFF0D0D0D : (active ? 0xFF333333 : (hovered ? 0xFF222222 : 0xFF161616)));
+            if (active && !locked) g.fill(tx, tabY + TAB_H - 2, tx + TAB_W, tabY + TAB_H, 0xFFFFAA00);
+            g.drawCenteredString(font, locked ? "§8" + labels[t] : ((active ? "§e" : "§7") + labels[t]),
                     tx + TAB_W / 2, tabY + 6, 0xFFFFFF);
         }
     }
@@ -740,7 +847,7 @@ public class GunSelectionScreen extends Screen {
         // Build PoseStack for the render
         PoseStack poseStack = new PoseStack();
 
-        // Translate to centre of preview box in screen space
+        // Translate to center of preview box in screen space
         // GUI coordinates: origin top-left, Z goes into screen
         float cx = bx + bw / 2f;
         float cy = by + bh / 2f;
@@ -1026,7 +1133,7 @@ public class GunSelectionScreen extends Screen {
     }
 
 
-    // Right loadout panel — persistent
+    // Right loadout panel persistent
 
     private void renderLoadoutPanel(GuiGraphics g, int mx, int my) {
         int px = panelX();
@@ -1138,6 +1245,18 @@ public class GunSelectionScreen extends Screen {
             } else {
                 g.drawCenteredString(font, "·", sx + thrSlotSize / 2, ty + thrSlotSize / 2 - 3, 0x333333);
             }
+        }
+        if (modifyingLoadoutIndex >= 0 && modifyingLoadoutIndex < clientLoadouts.size()) {
+            int barY = py + thrSectionH + 4;
+            boolean saveHov = mx >= px && mx < px + pw - 54 && my >= barY && my < barY + 20;
+            g.fill(px, barY, px + pw - 54, barY + 20, saveHov ? 0xFF1A4400 : 0xFF0F2800);
+            g.renderOutline(px, barY, pw - 54, 20, saveHov ? 0xFF88FF00 : 0xFF446600);
+            g.drawCenteredString(font, "§a+ Save Loadout", px + (pw - 54) / 2, barY + 6, 0xFFFFFF);
+            int cancelX = px + pw - 52;
+            boolean cancelHov = mx >= cancelX && mx < cancelX + 52 && my >= barY && my < barY + 20;
+            g.fill(cancelX, barY, cancelX + 52, barY + 20, cancelHov ? 0xFF3A1111 : 0xFF1A0A0A);
+            g.renderOutline(cancelX, barY, 52,20, cancelHov ? 0xFFBB3333 : 0xFF552222);
+            g.drawCenteredString(font, "§cCancel", cancelX + 26, barY + 6, 0xFFFFFF);
         }
     }
 
@@ -1269,14 +1388,25 @@ public class GunSelectionScreen extends Screen {
                 } catch (Exception ignored) {}
             }
 
-            // Rename + Delete buttons (right side)
-            int btnAreaX = x + contentW - 120;
+            // Modify + Rename + Delete buttons (right side)
+            int btnAreaX = x + contentW - 184;
             int btnY = sy + (cardH - 18) / 2;
-            int renX = btnAreaX;
+            // Modify
+            boolean modHov = mx >= btnAreaX && mx < btnAreaX + 52 && my >= btnY && my < btnY + 18;
+            boolean isModifying = modifyingLoadoutIndex == i;
+            g.fill(btnAreaX, btnY, btnAreaX + 52, btnY + 18,
+                    isModifying ? 0xFF2A5500 : (modHov ? 0xFF3A4400 : 0xFF1A2200));
+            g.renderOutline(btnAreaX, btnY, 52, 18,
+                    isModifying ? 0xFF88FF00 : (modHov ? 0xFF99BB00 : 0xFF556600));
+            g.drawCenteredString(font, isModifying ? "§a✏ Active" : "§eModify",
+                    btnAreaX + 26, btnY + 5, 0xFFFFFF);
+            // Rename
+            int renX = btnAreaX + 58;
             boolean renHov = mx >= renX && mx < renX + 58 && my >= btnY && my < btnY + 18;
             g.fill(renX, btnY, renX + 58, btnY + 18, renHov ? 0xFF223355 : 0xFF111A2A);
             g.renderOutline(renX, btnY, 58, 18, renHov ? 0xFF4488BB : 0xFF224466);
             g.drawCenteredString(font, "§bRename", renX + 29, btnY + 5, 0xFFFFFF);
+            // Delete
             int delX = renX + 64;
             boolean delHov = mx >= delX && mx < delX + 52 && my >= btnY && my < btnY + 18;
             g.fill(delX, btnY, delX + 52, btnY + 18, delHov ? 0xFF5A1A1A : 0xFF3A1111);
@@ -1284,7 +1414,24 @@ public class GunSelectionScreen extends Screen {
             g.drawCenteredString(font, "§cDelete", delX + 26, btnY + 5, 0xFFFFFF);
         }
 
-        if (activePhase) {
+        if (modifyingLoadoutIndex >= 0) {
+            int saveY = y + clientLoadouts.size() * (cardH + cardGap) + 6;
+            int saveW = contentW - 70;
+            boolean saveHov = mx >= x && mx < x + saveW && my >= saveY && my < saveY + 22;
+            g.fill(x, saveY, x + saveW, saveY + 22, saveHov ? 0xFF1A4400 : 0xFF0F2800);
+            g.renderOutline(x, saveY, saveW, 22, saveHov ? 0xFF88FF00 : 0xFF446600);
+            String saveLbl = modifyingLoadoutIndex < clientLoadouts.size()
+                    ? "§a+  Save Loadout  \"" + clientLoadouts.get(modifyingLoadoutIndex).name + "\""
+                    : "§a+  Save Loadout";
+            g.drawCenteredString(font, saveLbl, x + saveW / 2, saveY + 7, 0xFFFFFF);
+            // Cancel button
+            int cancelX = x + saveW + 4;
+            int cancelW = contentW - saveW - 4;
+            boolean cancelHov = mx >= cancelX && mx < cancelX + cancelW && my >= saveY && my < saveY + 22;
+            g.fill(cancelX, saveY, cancelX + cancelW, saveY + 22, cancelHov ? 0xFF3A1111 : 0xFF1A0A0A);
+            g.renderOutline(cancelX, saveY, cancelW, 22, cancelHov ? 0xFFBB3333 : 0xFF552222);
+            g.drawCenteredString(font, "§cCancel", cancelX + cancelW / 2, saveY + 7, 0xFFFFFF);
+        } else if (activePhase) {
             int noticeY = y + clientLoadouts.size() * (cardH + cardGap) + 6;
             g.drawCenteredString(font, "§7Changes take effect on next respawn.",
                     x + contentW / 2, noticeY + 7, 0x888888);
@@ -1318,6 +1465,8 @@ public class GunSelectionScreen extends Screen {
             int tx = LIST_X + t * (TAB_W + 2);
             if (mx >= tx && mx < tx + TAB_W && my >= tabY && my < tabY + TAB_H) {
                 if (activePhase) return true;
+                // Block Loadouts tab while modifying a loadout
+                if (t == 3 && modifyingLoadoutIndex >= 0) return true;
                 if (activeTab != t) {
                     exitEditor();
                     activeCategory = 0;
@@ -1326,6 +1475,8 @@ public class GunSelectionScreen extends Screen {
                     confirmDeleteIndex = -1;
                     focusedItemId = null;
                     if (searchBox != null) searchBox.setValue("");
+                    if (t == 1) ClientTips.show("2");
+                    else if (t == 3) ClientTips.show("3");
                 }
                 activeTab = t;
                 return true;
@@ -1365,6 +1516,28 @@ public class GunSelectionScreen extends Screen {
             }
         }
 
+        // Save/Cancel buttons when modifying loadout
+        if (modifyingLoadoutIndex >= 0 && modifyingLoadoutIndex < clientLoadouts.size()) {
+            int px = panelX(), pw = PANEL_W;
+            int weapH = 6 + 12 + MAX_GUN_SLOTS * 46 + (MAX_GUN_SLOTS > 0 ? (MAX_GUN_SLOTS - 1) * 4 : 0) + 6;
+            int thrSectionH = 6 + 14 + 30 + 8;
+            int barY = LIST_Y - 22 + 20 + weapH + 4 + thrSectionH + 4;
+            if (my >= barY && my < barY + 20) {
+                if (mx >= px && mx < px + pw - 54) {
+                    PacketHandler.CHANNEL.sendToServer(new com.frosty.bedgunwars.network.LoadoutPacket(
+                            com.frosty.bedgunwars.network.LoadoutPacket.Action.SAVE_OVER,
+                            modifyingLoadoutIndex, ""));
+                    modifyingLoadoutIndex = -1;
+                    return true;
+                }
+                int cancelX = px + pw - 52;
+                if (mx >= cancelX && mx < cancelX + 52) {
+                    modifyingLoadoutIndex = -1;
+                    return true;
+                }
+            }
+        }
+
         // Loadouts tab
         if (activeTab == 3) {
             int px = panelX();
@@ -1395,10 +1568,24 @@ public class GunSelectionScreen extends Screen {
 
             for (int i = 0; i < clientLoadouts.size(); i++) {
                 int sy = y + i * (cardH + cardGap);
-                int btnAreaX = x + contentW - 120;
+                int btnAreaX = x + contentW - 184;
                 int btnY = sy + (cardH - 18) / 2;
+                // Modify button
+                if (mx >= btnAreaX && mx < btnAreaX + 52 && my >= btnY && my < btnY + 18) {
+                    if (modifyingLoadoutIndex == i) {
+                        // Toggle off
+                        modifyingLoadoutIndex = -1;
+                    } else {
+                        modifyingLoadoutIndex = i;
+                        // Switch to Weapons tab to start modifying
+                        activeTab = 0;
+                        activeCategory = 0;
+                        scrollOffset = 0;
+                    }
+                    return true;
+                }
                 // Rename button
-                int renX = btnAreaX;
+                int renX = btnAreaX + 58;
                 if (mx >= renX && mx < renX + 58 && my >= btnY && my < btnY + 18) {
                     namingLoadoutIndex = i;
                     namingNew = false;
@@ -1416,6 +1603,25 @@ public class GunSelectionScreen extends Screen {
                     selectedLoadoutIndex = i;
                     PacketHandler.CHANNEL.sendToServer(new com.frosty.bedgunwars.network.LoadoutPacket(
                             com.frosty.bedgunwars.network.LoadoutPacket.Action.APPLY, i, ""));
+                    return true;
+                }
+            }
+
+            // Save Loadout / Cancel buttons (shown when modifying)
+            if (modifyingLoadoutIndex >= 0) {
+                int saveY = y + clientLoadouts.size() * (cardH + cardGap) + 6;
+                int saveW = contentW - 70;
+                if (mx >= x && mx < x + saveW && my >= saveY && my < saveY + 22) {
+                    PacketHandler.CHANNEL.sendToServer(new com.frosty.bedgunwars.network.LoadoutPacket(
+                            com.frosty.bedgunwars.network.LoadoutPacket.Action.SAVE_OVER,
+                            modifyingLoadoutIndex, ""));
+                    modifyingLoadoutIndex = -1;
+                    return true;
+                }
+                int cancelX = x + saveW + 4;
+                int cancelW = contentW - saveW - 4;
+                if (mx >= cancelX && mx < cancelX + cancelW && my >= saveY && my < saveY + 22) {
+                    modifyingLoadoutIndex = -1;
                     return true;
                 }
             }
@@ -1792,6 +1998,7 @@ public class GunSelectionScreen extends Screen {
             }
             return true;
         }
+        if (keyCode == 256 && modifyingLoadoutIndex >= 0) { modifyingLoadoutIndex = -1; return true; }
         if (keyCode == 256 && confirmDeleteIndex >= 0) { confirmDeleteIndex = -1; return true; }
         if (keyCode == 256 && inAttachmentEditor()) { exitEditor(); return true; }
         return super.keyPressed(keyCode, scanCode, modifiers);
@@ -1812,6 +2019,12 @@ public class GunSelectionScreen extends Screen {
         int maxScroll = Math.max(1, filtered.size() - VISIBLE_ROWS);
         double ratio = (my - LIST_Y) / listH;
         scrollOffset = (int) Math.max(0, Math.min(maxScroll, ratio * filtered.size()));
+    }
+
+    @Override
+    public void onClose() {
+        ClientTips.show("4");
+        super.onClose();
     }
 
     @Override

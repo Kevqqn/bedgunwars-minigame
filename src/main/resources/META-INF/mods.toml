@@ -9,23 +9,40 @@ displayName="${mod_name}"
 authors="${mod_authors}"
 description='''${mod_description}'''
 
-[[dependencies.bedgunwars]]
-modId = "tacz"
-mandatory = true
-versionRange = "[1.1.4,)"
-ordering = "AFTER"
-side = "BOTH"
+[[mixins]]
+config="bedgunwars.mixins.json"
 
 [[dependencies.bedgunwars]]
-modId = "lrtactical"
-mandatory = true
-versionRange = "[0.3.0,)"
-ordering = "AFTER"
-side = "BOTH"
+modId="forge"
+mandatory=true
+versionRange="${forge_version_range}"
+ordering="NONE"
+side="BOTH"
 
 [[dependencies.bedgunwars]]
-modId = "geckolib"
-mandatory = false
-versionRange = "[4.4.4,5)"
-ordering = "NONE"
-side = "BOTH"
+modId="minecraft"
+mandatory=true
+versionRange="${minecraft_version_range}"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.bedgunwars]]
+modId="tacz"
+mandatory=true
+versionRange="[1.1.4,)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.bedgunwars]]
+modId="lrtactical"
+mandatory=true
+versionRange="[0.3.0,)"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.bedgunwars]]
+modId="geckolib"
+mandatory=true
+versionRange="[4.4,5.0)"
+ordering="NONE"
+side="BOTH"

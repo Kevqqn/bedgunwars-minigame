@@ -96,12 +96,16 @@ public class OpenGunMenuPacket {
     }
 
     public static void handle(OpenGunMenuPacket msg, Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() ->
-                com.frosty.bedgunwars.client.GunSelectionScreen.open(
-                        msg.allGuns, msg.currentGunSelections,
-                        msg.allAttachments, msg.currentAttachmentSelections,
-                        msg.allThrowables, msg.currentThrowableSelections,
-                        msg.gunAttachments, msg.activePhase));
+        ctx.get().enqueueWork(() -> {
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            boolean isUpdate = mc.screen instanceof com.frosty.bedgunwars.client.GunSelectionScreen;
+            com.frosty.bedgunwars.client.GunSelectionScreen.open(
+                    msg.allGuns, msg.currentGunSelections,
+                    msg.allAttachments, msg.currentAttachmentSelections,
+                    msg.allThrowables, msg.currentThrowableSelections,
+                    msg.gunAttachments, msg.activePhase);
+            if (!isUpdate) com.frosty.bedgunwars.client.ClientTips.show("1");
+        });
         ctx.get().setPacketHandled(true);
     }
 

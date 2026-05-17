@@ -34,12 +34,15 @@ import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
 import java.util.List;
 
 import java.util.UUID;
+import com.frosty.bedgunwars.game.TipsManager;
 
 public class GameTickHandler {
 
     @SuppressWarnings("unused")
     @SubscribeEvent
     public void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return; // ← move this to the TOP
+
         // Process scheduled tasks
         for (int i = taskDelays.size() - 1; i >= 0; i--) {
             taskDelays.set(i, taskDelays.get(i) - 1);
@@ -49,7 +52,7 @@ public class GameTickHandler {
                 taskDelays.remove(i);
             }
         }
-        if (event.phase != TickEvent.Phase.END) return;
+
         if (!GameManager.hasGame()) return;
 
         GameSession session = GameManager.getSession();
@@ -71,7 +74,46 @@ public class GameTickHandler {
             }
         }
 
-        if (phase == GamePhase.PREPARATION) {
+        if (phase == GamePhase.WAITING_PLAYERS) {
+            int ticksLeft = session.getWaitingPlayersTicks();
+            int initialTicks = session.getWaitingInitialTicks();
+            int secondsLeft = ticksLeft / 20;
+            int joined = session.getJoinedPlayers().size();
+            int online = event.getServer().getPlayerList().getPlayers().size();
+
+            float progress = initialTicks > 0 ? (float) ticksLeft / initialTicks : 0f;
+            BossBarManager.show(event.getServer(),
+                    "Waiting for players: " + secondsLeft + "s | " + joined + "/" + online + " joined",
+                    progress);
+
+            // Broadcast join prompt at key intervals
+            if (ticksLeft == 25 * 20 || ticksLeft == 15 * 20 || ticksLeft == 10 * 20 || ticksLeft == 5 * 20) {
+                for (ServerPlayer p : event.getServer().getPlayerList().getPlayers()) {
+                    if (!session.isJoined(p.getUUID())) {
+                        p.sendSystemMessage(Component.literal(
+                                "§6[BedGunWars] §eMatch starting in " + secondsLeft + "s! Type §f/game join §eto participate."));
+                    }
+                }
+            }
+
+            // All online players joined — start after minimum 5s wait
+            boolean allJoined = online > 0 && joined >= online;
+            if (allJoined && ticksLeft <= session.getWaitingMinTicks()) {
+                BossBarManager.remove(event.getServer());
+                com.frosty.bedgunwars.command.GameCommand.launchPreparation(event.getServer(), session);
+                return;
+            }
+
+            session.decreaseWaitingPlayersTicks();
+
+            if (session.getWaitingPlayersTicks() <= 0) {
+                BossBarManager.remove(event.getServer());
+                com.frosty.bedgunwars.command.GameCommand.launchPreparation(event.getServer(), session);
+            }
+            return;
+        }
+
+        else if (phase == GamePhase.PREPARATION) {
             com.frosty.bedgunwars.command.GameCommand.tickLockedPlayers(event.getServer());
             if (!session.isMinimapStartSent()) {
                 session.setMinimapStartSent(true);
@@ -101,8 +143,20 @@ public class GameTickHandler {
                     SoundHelper.playNoteClick(p, SoundHelper.noteToPitch(20));
                 }
                 broadcast(event.getServer(), "Game starts in " + secondsLeft + "s!");
-            } else if (ticksLeft == 60 * 20 || ticksLeft == 30 * 20 || ticksLeft == 10 * 20) {
+            } else if (ticksLeft == 60 * 20 || ticksLeft == 30 * 20) {
                 broadcast(event.getServer(), "Game starts in " + secondsLeft + "s!");
+            } else if (ticksLeft == 10 * 20) {
+                broadcast(event.getServer(), "Game starts in " + secondsLeft + "s!");
+                String tipId = session.isDeathmatch() ? "6" : "5";
+                for (UUID uuid : session.getPlayers()) {
+                    ServerPlayer p = event.getServer().getPlayerList().getPlayer(uuid);
+                    if (p == null) continue;
+                    if (session.isDeathmatch()) {
+                        TipsManager.sendTip(p, tipId, "<winkills>", String.valueOf(session.getKillLimit()));
+                    } else {
+                        TipsManager.sendTip(p, tipId);
+                    }
+                }
             }
 
 
@@ -125,6 +179,10 @@ public class GameTickHandler {
                     broadcast(event.getServer(), "Deathmatch has started! First to " + session.getKillLimit() + " kills wins!");
                 } else {
                     broadcast(event.getServer(), "Game has started! Destroy enemy beds!");
+                    for (UUID uuid : session.getPlayers()) {
+                        ServerPlayer tp = event.getServer().getPlayerList().getPlayer(uuid);
+                        if (tp != null) TipsManager.sendTip(tp, "7");
+                    }
                 }
             }
             GameScoreboard.update(session);
@@ -149,10 +207,25 @@ public class GameTickHandler {
                 BossBarManager.show(event.getServer(), "Match: " + formatTime(secondsLeft) + " remaining", progress);
             }
 
-            if (ticksLeft == 60 * 20 || ticksLeft == 30 * 20 || ticksLeft == 10 * 20
+            if (ticksLeft == 5 * 60 * 20) {
+                broadcast(event.getServer(), "§e[NOTICE] §f5 minutes remaining!");
+            } else if (ticksLeft == 2 * 60 * 20) {
+                broadcast(event.getServer(), "§e[NOTICE] §f2 minutes remaining!");
+                for (ServerPlayer p : event.getServer().getPlayerList().getPlayers()) {
+                    SoundHelper.playNoteClick(p, SoundHelper.noteToPitch(20));
+                }
+            } else if (ticksLeft == 60 * 20) {
+                broadcast(event.getServer(), "§c[NOTICE] §f1 minute remaining!");
+                for (ServerPlayer p : event.getServer().getPlayerList().getPlayers()) {
+                    SoundHelper.playNoteClick(p, SoundHelper.noteToPitch(22));
+                }
+            } else if (ticksLeft == 30 * 20 || ticksLeft == 10 * 20
                     || ticksLeft == 5 * 20 || ticksLeft == 4 * 20 || ticksLeft == 3 * 20
                     || ticksLeft == 2 * 20 || ticksLeft == 1 * 20) {
                 broadcast(event.getServer(), "Match ends in " + secondsLeft + "s!");
+                for (ServerPlayer p : event.getServer().getPlayerList().getPlayers()) {
+                    SoundHelper.playNoteClick(p, SoundHelper.noteToPitch(20));
+                }
             }
 
             if (ticksLeft % 20 == 0) {
@@ -161,6 +234,19 @@ public class GameTickHandler {
 
             if (ticksLeft % 40 == 0) {
                 TabStatsManager.push(event.getServer(), session);
+            }
+
+            int elapsed = session.getInitialMatchTicks() - ticksLeft;
+            if (elapsed == 20 * 20) {
+                for (UUID uuid : session.getPlayers()) {
+                    ServerPlayer tp = event.getServer().getPlayerList().getPlayer(uuid);
+                    if (tp != null) TipsManager.sendTip(tp, "8");
+                }
+            } else if (elapsed == 60 * 20) {
+                for (UUID uuid : session.getPlayers()) {
+                    ServerPlayer tp = event.getServer().getPlayerList().getPlayer(uuid);
+                    if (tp != null) TipsManager.sendTip(tp, "9");
+                }
             }
 
             if (ticksLeft <= 0) {
@@ -236,6 +322,31 @@ public class GameTickHandler {
         else if (phase == GamePhase.WINNER_ANNOUNCED) {
             GameScoreboard.update(session);
             session.removeNametagTeams(event.getServer());
+
+            // Send pre-fade 10 ticks before cutscene (winnerDelay == 11)
+            if (session.getWinnerDelayTicks() == 11) {
+                PacketHandler.sendToAllClients(event.getServer(), new com.frosty.bedgunwars.network.MvpPreFadePacket());
+            }
+
+            if (session.getWinnerDelayTicks() == 1 && !com.frosty.bedgunwars.game.MvpCutsceneManager.isRunning()) {
+                com.frosty.bedgunwars.game.MvpCutsceneManager.start(event.getServer(), session, session.getWinnerUUID());
+            }
+
+            com.frosty.bedgunwars.game.MvpCutsceneManager.tick(event.getServer(), session);
+            session.decreaseWinnerDelay();
+
+            if (session.getWinnerDelayTicks() <= 0) {
+                GameCleanupManager.restoreAndEnd(
+                        event.getServer(), session,
+                        session.getWinnerName() + " wins! Game ended."
+                );
+            }
+        }
+        else if (phase == GamePhase.SCOREBOARD_VIEW) {
+            com.frosty.bedgunwars.BedGunWars.LOGGER.info("[Scoreboard] tick={}, winnerDelay={}",
+                    com.frosty.bedgunwars.game.EndScoreboardManager.getTick(),
+                    session.getWinnerDelayTicks());
+            com.frosty.bedgunwars.game.EndScoreboardManager.tick(event.getServer(), session);
             session.decreaseWinnerDelay();
             if (session.getWinnerDelayTicks() <= 0) {
                 GameCleanupManager.restoreAndEnd(
@@ -295,6 +406,9 @@ public class GameTickHandler {
         }
 
         broadcast(server, "Endgame! All beds destroyed. Last player standing wins!");
+        for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+            TipsManager.sendTip(p, "13");
+        }
     }
 
     private void destroyAllBeds(GameSession session) {
@@ -421,15 +535,15 @@ public class GameTickHandler {
             int healTier = mgr.getTier(team, BedUpgradeManager.UpgradeType.HEALING_STATION);
             if (healTier > 0) {
                 boolean inRange = switch (healTier) {
-                    case 1 -> distToBed <= 10 * 10;
-                    case 2 -> distToBed <= 30 * 30;
-                    case 3 -> distToBed <= 10 * 10;
-                    case 4 -> distToBed <= 20 * 20;
-                    case 5, 6 -> true; // permanent
+                    case 1 -> distToBed <= 20 * 20;
+                    case 2 -> distToBed <= 40 * 40;
+                    case 3 -> distToBed <= 60 * 60;
+                    case 4 -> distToBed <= 40 * 40;
+                    case 5 -> distToBed <= 80 * 80;
+                    case 6 -> true;
                     default -> false;
                 };
-                int amplifier = (healTier >= 3 && healTier <= 4) ? 1 : // Regen II tiers
-                        (healTier >= 5) ? (healTier == 6 ? 0 : 1) : 0;
+                int amplifier = healTier >= 4 ? 1 : 0;
                 if (inRange) {
                     player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
                             net.minecraft.world.effect.MobEffects.REGENERATION, 40, amplifier, false, false));
@@ -453,17 +567,24 @@ public class GameTickHandler {
                 // Mining Fatigue Trap
                 int mfTier = mgr.getTier(team, BedUpgradeManager.UpgradeType.MINING_FATIGUE);
                 if (mfTier > 0 && enemyDistToBed <= 3 * 3) {
-                    // T6 check: only if owner is within 10 blocks
                     if (mfTier == 6 && distToBed > 10 * 10) {
-                        // owner is far — T6 always-on requires owner nearby
+                        // T6 always-on requires owner nearby, skip
                     } else {
                         int[] mfDuration = {0, 40, 80, 120, 160, 120, Integer.MAX_VALUE};
                         int[] mfLevel    = {1,  1,  2,   2,   2,   3,  2};
                         enemy.addEffect(new net.minecraft.world.effect.MobEffectInstance(
                                 net.minecraft.world.effect.MobEffects.DIG_SLOWDOWN,
                                 mfDuration[mfTier], mfLevel[mfTier], false, true));
-                        // Reset to T1 after trigger (except T6 which is permanent)
-                        if (mfTier < 6) mgr.setTier(team, BedUpgradeManager.UpgradeType.MINING_FATIGUE, 1);
+                        if (mfTier < 6) {
+                            mgr.setTier(team, BedUpgradeManager.UpgradeType.MINING_FATIGUE, 1);
+                            // notify bed owner
+                            ServerPlayer owner = server.getPlayerList().getPlayer(bedOwner);
+                            if (owner != null) {
+                                owner.sendSystemMessage(Component.literal(
+                                        "§6[BED TRAP] §fMining Fatigue triggered! Trap has been reset to Tier 1."));
+                                SoundHelper.playNoteClick(owner, SoundHelper.noteToPitch(18));
+                            }
+                        }
                     }
                 }
 
@@ -501,12 +622,63 @@ public class GameTickHandler {
                     BlockPos enemyBed = session.getPlayerBed(enemyUuid);
                     if (enemyBed == null) continue;
                     double distToEnemyBed = player.blockPosition().distSqr(enemyBed);
-                    if (distToEnemyBed <= 5 * 5) {
-                        SoundHelper.playNoteClick(player, SoundHelper.noteToPitch(22));
-                        player.sendSystemMessage(Component.literal("§e[NOTICE] §fYou are near someone's bed!"));
+                    if (distToEnemyBed <= 9 * 9 && !session.hasBedSenseActive(uuid)) {
+                        // trigger bed sense — initial alert
+                        session.setBedSenseTimer(uuid, 8 * 20);
+                        player.sendSystemMessage(Component.literal("§e[BED SENSE] §fEnemy bed detected nearby!"));
                         mgr.setTier(team, BedUpgradeManager.UpgradeType.BED_SENSE, 0);
                         break;
                     }
+                }
+            }
+
+            // tick active bed sense - proximity beeping + actionbar distance
+            if (session.hasBedSenseActive(uuid)) {
+                // find closest enemy bed
+                BlockPos closestBed = null;
+                double closestDist = Double.MAX_VALUE;
+                for (UUID enemyUuid : session.getPlayers()) {
+                    if (session.isEliminated(enemyUuid)) continue;
+                    if (session.getMode() == GameModeType.TEAMS) {
+                        String myTeam = session.getPlayerTeam(uuid);
+                        String enemyTeam = session.getPlayerTeam(enemyUuid);
+                        if (myTeam != null && myTeam.equals(enemyTeam)) continue;
+                    }
+                    BlockPos bed = session.getPlayerBed(enemyUuid);
+                    if (bed == null) continue;
+                    double dist = player.blockPosition().distSqr(bed);
+                    if (dist < closestDist) { closestDist = dist; closestBed = bed; }
+                }
+
+                if (closestBed != null) {
+                    int timerTicks = session.getBedSenseTimer(uuid);
+                    int secsLeft = timerTicks / 20;
+                    int blockDist = (int) Math.sqrt(closestDist);
+
+                    // actionbar distance readout
+                    player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket(
+                            Component.literal("§e[BED SENSE] §fEnemy bed ~" + blockDist + " blocks away §7(" + secsLeft + "s)")));
+
+                    // proximity beeping — faster and higher pitch the closer you are
+                    // beep every N ticks based on distance: 1 block = every 2t, 9 blocks = every 18t
+                    int beepInterval = Math.max(2, blockDist * 2);
+                    if (timerTicks % beepInterval == 0) {
+                        // pitch scales from low (far) to high (close): 9 blocks = pitch 10, 1 block = pitch 24
+                        int pitch = Math.max(10, 24 - blockDist);
+                        // play sound at bed position so spatial audio gives direction naturally
+                        player.serverLevel().playSound(player, closestBed,
+                                net.minecraft.sounds.SoundEvents.NOTE_BLOCK_PLING.get(),
+                                net.minecraft.sounds.SoundSource.PLAYERS,
+                                0.6f, SoundHelper.noteToPitch(pitch));
+                    }
+                }
+
+                session.tickBedSenseTimer(uuid);
+
+                // timer expired — clear actionbar
+                if (!session.hasBedSenseActive(uuid)) {
+                    player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket(
+                            Component.literal("")));
                 }
             }
         }

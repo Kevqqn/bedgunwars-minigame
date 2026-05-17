@@ -11,7 +11,7 @@ import java.util.function.Supplier;
 
 public class LoadoutPacket {
 
-    public enum Action { SAVE, APPLY, DELETE, RENAME }
+    public enum Action { SAVE, APPLY, DELETE, RENAME, SAVE_OVER }
 
     public final Action action;
     public final int index;
@@ -43,6 +43,7 @@ public class LoadoutPacket {
                 case SAVE   -> lm.saveLoadout(player.getUUID(), pkt.name, gsm);
                 case DELETE -> lm.deleteLoadout(player.getUUID(), pkt.index);
                 case RENAME -> lm.renameLoadout(player.getUUID(), pkt.index, pkt.name);
+                case SAVE_OVER -> lm.saveOverLoadout(player.getUUID(), pkt.index, gsm);
                 case APPLY  -> {
                     if (session.getPhase() == com.frosty.bedgunwars.game.GamePhase.ACTIVE) {
                         lm.applyLoadout(player.getUUID(), pkt.index, gsm);

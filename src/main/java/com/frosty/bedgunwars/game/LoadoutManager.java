@@ -42,7 +42,7 @@ public class LoadoutManager {
         catch (Exception e) { BedGunWars.LOGGER.error("[Loadout] Failed to create dir: {}", e.getMessage()); }
     }
 
-    // ── Load from disk ────────────────────────────────────────────────────────
+    // Load from disk
 
     public List<Loadout> getLoadouts(UUID uuid) {
         return loadouts.computeIfAbsent(uuid, k -> loadFromDisk(k));
@@ -51,7 +51,11 @@ public class LoadoutManager {
     private List<Loadout> loadFromDisk(UUID uuid) {
         if (saveDir == null) return new ArrayList<>();
         Path file = saveDir.resolve(uuid + ".json");
-        if (!Files.exists(file)) return new ArrayList<>();
+        if (!Files.exists(file)) {
+            List<Loadout> defaults = createDefaultLoadouts();
+            saveToDisk(uuid, defaults);
+            return defaults;
+        }
         try {
             String json = Files.readString(file);
             JsonArray arr = GSON.fromJson(json, JsonArray.class);
@@ -87,7 +91,7 @@ public class LoadoutManager {
         }
     }
 
-    // ── Save to disk ──────────────────────────────────────────────────────────
+    // Save to disk
 
     private void saveToDisk(UUID uuid) {
         if (saveDir == null) return;
@@ -119,7 +123,7 @@ public class LoadoutManager {
         }
     }
 
-    // ── Public API ────────────────────────────────────────────────────────────
+    // Public API
 
     public boolean saveLoadout(UUID uuid, String name,
                                GunSelectionManager gsm) {
@@ -185,6 +189,62 @@ public class LoadoutManager {
         list.get(index).name = newName;
         saveToDisk(uuid);
         return true;
+    }
+
+    public boolean saveOverLoadout(UUID uuid, int index, GunSelectionManager gsm) {
+        List<Loadout> list = getLoadouts(uuid);
+        if (index < 0 || index >= list.size())
+            return false;
+        String existingName = list.get(index).name;
+
+        List<String> guns = new ArrayList<>();
+        for (ResourceLocation g : gsm.getGunSelections(uuid))
+            guns.add(g.toString());
+
+        Map<Integer, Map<String, String>> atts = new HashMap<>();
+        for (Map.Entry<Integer, Map<AttachmentType, ResourceLocation>> slotEntry :
+        gsm.getAllGunAttachments(uuid).entrySet()) {
+            Map<String, String> typeMap = new HashMap<>();
+            for (Map.Entry<AttachmentType, ResourceLocation> e : slotEntry.getValue().entrySet())
+                typeMap.put(e.getKey().name(), e.getValue().toString());
+            atts.put(slotEntry.getKey(), typeMap);
+        }
+        List<String> throwables = new ArrayList<>();
+        for (ResourceLocation t : gsm.getThrowableSelections(uuid))
+            throwables.add(t.toString());
+        list.set(index, new Loadout(existingName, guns, atts, throwables));
+        saveToDisk(uuid);
+        return true;
+    }
+
+    private List<Loadout> createDefaultLoadouts() {
+        List<Loadout> defaults = new ArrayList<>();
+
+        Map<Integer, Map<String, String>> loadout1Attachments = new HashMap<>();
+        loadout1Attachments.put(0, new HashMap<>(Map.of("SCOPE", "tacz:scope_contender")));
+
+        defaults.add(new Loadout("Loadout 1",
+                List.of("tacz:m700", "tacz:m4a1", "tacz:m1911"),
+                loadout1Attachments,
+                List.of()));
+
+        defaults.add(new Loadout("Loadout 2",
+                List.of("tacz:aug", "tacz:vector45", "tacz:glock_17"),
+                new HashMap<>(),
+                List.of()));
+
+        return defaults;
+    }
+
+    private void saveToDisk(UUID uuid, List<Loadout> loadouts) {
+        if (saveDir == null) return;
+        try {
+            JsonArray arr = new JsonArray();
+            for (Loadout l : loadouts) arr.add(GSON.toJsonTree(l));
+            Files.writeString(saveDir.resolve(uuid + ".json"), GSON.toJson(arr));
+        } catch (Exception e) {
+            BedGunWars.LOGGER.error("[Loadout] Failed to write defaults: {}", e.getMessage());
+        }
     }
 
     // Singleton per server

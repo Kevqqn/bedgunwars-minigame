@@ -1,6 +1,7 @@
 package com.frosty.bedgunwars.event;
 
 import com.frosty.bedgunwars.game.*;
+import com.frosty.bedgunwars.game.TipsManager;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -34,6 +35,9 @@ public class PlayerDeathHandler {
                 session.addKill(killer.getUUID());
                 session.addMoney(killer.getUUID(), 150);
                 killer.sendSystemMessage(Component.literal("§a+$150 §7(Kill)"));
+                int newBalance = session.getMoney(killer.getUUID());
+                killer.connection.send(new net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket(
+                        Component.literal("§a+$150 §7| §eBalance: §f$" + newBalance)));
                 session.getKillstreakManager().onKill(killer.getUUID(), killer.getServer(), session);
 
                 // Death feed packet — sends gun HUD texture + names to all clients
@@ -72,12 +76,19 @@ public class PlayerDeathHandler {
         // Track death
         session.addDeath(uuid);
         session.getKillstreakManager().onDeath(uuid, player.getServer(), session);
+        if (session.getMode() == GameModeType.SOLO || session.getMode() == GameModeType.TEAMS) {
+            TipsManager.sendTip(player, "12");
+        }
 
         // Deathmatch death — never eliminate, always respawn
         if (session.isDeathmatch() && session.getPhase() == GamePhase.ACTIVE) {
             event.setCanceled(true);
             player.setHealth(player.getMaxHealth());
-            scheduleDeathmatchRespawn(player, session);
+            net.minecraft.core.BlockPos killerPos = null;
+            if (event.getSource().getEntity() instanceof ServerPlayer killer) {
+                killerPos = killer.blockPosition();
+            }
+            scheduleDeathmatchRespawn(player, session, killerPos);
             return;
         }
 
@@ -241,7 +252,7 @@ public class PlayerDeathHandler {
                 && level.getBlockState(pos.above()).isAir()
                 && !level.getBlockState(pos.below()).isAir();
     }
-    private void scheduleDeathmatchRespawn(ServerPlayer player, GameSession session) {
+    private void scheduleDeathmatchRespawn(ServerPlayer player, GameSession session, net.minecraft.core.BlockPos killerPos) {
         UUID uuid = player.getUUID();
         MinecraftServer server = player.getServer();
         if (server == null) return;
@@ -268,7 +279,7 @@ public class PlayerDeathHandler {
                 String team = session.getPlayerTeam(uuid);
                 spawnBeacon = session.getDeathmatchManager().getTeamRespawnBeacon(team);
             } else {
-                spawnBeacon = session.getDeathmatchManager().getRandomBeacon();
+                spawnBeacon = getSafeDeathmatchBeacon(session, killerPos);
             }
 
             net.minecraft.core.BlockPos dest = spawnBeacon != null
@@ -307,6 +318,28 @@ public class PlayerDeathHandler {
         }
         return null;
     }
+
+    private net.minecraft.core.BlockPos getSafeDeathmatchBeacon(GameSession session, net.minecraft.core.BlockPos killerPos) {
+        java.util.List<net.minecraft.core.BlockPos> beacons = session.getDeathmatchManager().getAllBeacons();
+        if (beacons.isEmpty()) return null;
+        if (killerPos == null || beacons.size() == 1) return beacons.get(new java.util.Random().nextInt(beacons.size()));
+
+        // filter out beacons within 20 blocks of the killer
+        int minDistSq = 20 * 20;
+        java.util.List<net.minecraft.core.BlockPos> safeBeacons = beacons.stream()
+                .filter(b -> b.distSqr(killerPos) >= minDistSq)
+                .collect(java.util.stream.Collectors.toList());
+
+        // if all beacons are too close, fall back to the furthest one
+        if (safeBeacons.isEmpty()) {
+            return beacons.stream()
+                    .max(java.util.Comparator.comparingDouble(b -> b.distSqr(killerPos)))
+                    .orElse(beacons.get(0));
+        }
+
+        return safeBeacons.get(new java.util.Random().nextInt(safeBeacons.size()));
+    }
+
     private void applyLoadoutToPlayer(ServerPlayer p, UUID uuid, GameSession session) {
         for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
             net.minecraft.world.item.ItemStack s = p.getInventory().getItem(i);

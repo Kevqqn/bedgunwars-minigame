@@ -1,6 +1,7 @@
 package com.frosty.bedgunwars.game;
 
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
@@ -47,5 +48,15 @@ public class SoundHelper {
                 player.getX(), player.getY(), player.getZ(),
                 1.0f, 1.0f, 0L
         ));
+    }
+    public static void playToAll(MinecraftServer server, net.minecraft.sounds.SoundEvent sound, float volume) {
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            player.connection.send(new ClientboundSoundPacket(
+                    net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.wrapAsHolder(sound),
+                    SoundSource.MASTER,
+                    player.getX(), player.getY(), player.getZ(),
+                    volume, 1.0f, 0L
+            ));
+        }
     }
 }

@@ -31,7 +31,7 @@ public class PlayerDisconnectHandler {
             return;
         }
 
-        if (phase == GamePhase.STARTING || phase == GamePhase.PREPARATION) {
+        if (phase == GamePhase.STARTING || phase == GamePhase.WAITING_PLAYERS || phase == GamePhase.PREPARATION) {
             // Don't remove from session — just mark as temporarily disconnected
             session.getDisconnectedDuringPrep().add(uuid);
             return;

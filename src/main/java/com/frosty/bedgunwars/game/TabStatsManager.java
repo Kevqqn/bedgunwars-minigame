@@ -9,10 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Builds and pushes TabStatsPacket to all players in the session.
- * Called on every kill, death, money change, bed break, and elimination.
- */
 public class TabStatsManager {
 
     public static void push(MinecraftServer server, GameSession session) {
@@ -24,7 +20,7 @@ public class TabStatsManager {
         for (UUID uuid : session.getPlayers()) {
             ServerPlayer sp = server.getPlayerList().getPlayer(uuid);
             String name = sp != null ? sp.getName().getString()
-                    : uuid.toString().substring(0, 8);
+                    : session.getCachedName(uuid);
 
             String team = session.getMode() == GameModeType.TEAMS
                     ? session.getPlayerTeam(uuid) : null;
@@ -44,11 +40,9 @@ public class TabStatsManager {
                     uuid, name, team, teamColor,
                     kills, deaths, money, bedStatus, alive));
         }
-
         TabStatsPacket pkt = new TabStatsPacket(mode, entries);
-        for (UUID uuid : session.getPlayers()) {
-            ServerPlayer sp = server.getPlayerList().getPlayer(uuid);
-            if (sp != null) PacketHandler.sendToClient(sp, pkt);
+        for (ServerPlayer sp : server.getPlayerList().getPlayers()) {
+            PacketHandler.sendToClient(sp, pkt);
         }
     }
 

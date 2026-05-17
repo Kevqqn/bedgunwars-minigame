@@ -42,6 +42,15 @@ public class GameSession {
     private final Map<UUID, String> playerTeams = new HashMap<>();
     private final Map<UUID, BlockPos> playerBeds = new HashMap<>();
     private final Map<BlockPos, UUID> bedOwners = new HashMap<>();
+    private final Map<UUID, String> playerNameCache = new HashMap<>();
+
+    public void cachePlayerName(UUID uuid, String name) { playerNameCache.put(uuid, name); }
+    public String getCachedName(UUID uuid) { return playerNameCache.getOrDefault(uuid, uuid.toString().substring(0, 8)); }
+    private final Map<UUID, Integer> bedSenseTimers = new HashMap<>();
+    public void setBedSenseTimer(UUID uuid, int ticks) { bedSenseTimers.put(uuid, ticks); }
+    public int getBedSenseTimer(UUID uuid) { return bedSenseTimers.getOrDefault(uuid, 0); }
+    public void tickBedSenseTimer(UUID uuid) { bedSenseTimers.computeIfPresent(uuid, (k, v) -> v <= 1 ? null : v - 1); }
+    public boolean hasBedSenseActive(UUID uuid) { return bedSenseTimers.getOrDefault(uuid, 0) > 0; }
     private final Set<UUID> brokenBeds = new HashSet<>();
     private final Set<UUID> eliminatedPlayers = new HashSet<>();
     private final Set<UUID> pendingRespawnPlayers = new HashSet<>();
@@ -131,6 +140,21 @@ public class GameSession {
     private boolean matchTimerSet = false;
     private int endgameBorderShrinkTicks = 0;
     private int endgameBorderShrinkInterval = 60 * 20;
+
+    // WAITING_PLAYERS phase
+    private static final int WAITING_PLAYERS_TICKS = 30 * 20;
+    private static final int WAITING_MIN_TICKS = 5 * 20;
+    private int waitingPlayersTicks = WAITING_PLAYERS_TICKS;
+    private int configuredPrepSeconds = 180;
+
+    public int getWaitingPlayersTicks() { return waitingPlayersTicks; }
+    public void decreaseWaitingPlayersTicks() { if (waitingPlayersTicks > 0) waitingPlayersTicks--; }
+    public void setWaitingPlayersTicks(int ticks) { this.waitingPlayersTicks = ticks; }
+    public int getWaitingMinTicks() { return WAITING_MIN_TICKS; }
+    public int getWaitingInitialTicks() { return WAITING_PLAYERS_TICKS; }
+
+    public int getConfiguredPrepSeconds() { return configuredPrepSeconds; }
+    public void setConfiguredPrepSeconds(int seconds) { this.configuredPrepSeconds = seconds; }
 
     // Border
     public int getBorderRadius() { return borderRadius; }
@@ -301,7 +325,7 @@ public class GameSession {
     public void setWinner(String winnerName) {
         this.winnerName = winnerName;
         this.phase = GamePhase.WINNER_ANNOUNCED;
-        this.winnerDelayTicks = 60;
+        this.winnerDelayTicks = 120;
     }
 
     public void setWinnerDelay(int delay) { this.winnerDelayTicks = delay; }
@@ -310,6 +334,11 @@ public class GameSession {
     public void decreaseWinnerDelay() {
         if (winnerDelayTicks > 0) winnerDelayTicks--;
     }
+
+    // mvp cutscene
+    private UUID winnerUUID = null;
+    public UUID getWinnerUUID() { return winnerUUID; }
+    public void setWinnerUUID(UUID uuid) { this.winnerUUID = uuid; }
 
     // Snapshots
     public boolean hasSnapshot(UUID uuid) { return savedPlayerStates.containsKey(uuid); }
@@ -374,6 +403,7 @@ public class GameSession {
         teamBedOwners.clear();
         disconnectedDuringPrep.clear();
         winnerName = null;
+        winnerUUID = null;
         winnerDelayTicks = 0;
         matchStartPlayerCount = 0;
         offlinePlayers.clear();
@@ -384,6 +414,7 @@ public class GameSession {
         minimapStartSent = false;
         deathmatchManager.clearKillsOnly();
         killLimitSet = false;
+        waitingPlayersTicks = WAITING_PLAYERS_TICKS;
     }
 
     public void hideAllNametags(MinecraftServer server) {

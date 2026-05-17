@@ -8,6 +8,7 @@ import com.frosty.bedgunwars.event.GameTickHandler;
 import com.frosty.bedgunwars.event.PlayerDeathHandler;
 // import com.frosty.bedgunwars.event.PlayerRespawnHandler;
 import com.frosty.bedgunwars.game.*;
+import com.frosty.bedgunwars.game.GameSetupUI;
 import com.frosty.bedgunwars.minimap.MinimapConfig;
 import com.frosty.bedgunwars.minimap.MinimapRenderer;
 import com.frosty.bedgunwars.minimap.MinimapSettingsScreen;
@@ -40,14 +41,19 @@ public class BedGunWars {
         MinecraftForge.EVENT_BUS.register(new BedEventHandler());
         MinecraftForge.EVENT_BUS.register(new PlayerDeathHandler());
         SOUNDS.register(context.getModEventBus());
+        ENTITIES.register(context.getModEventBus());
         if (net.minecraftforge.fml.loading.FMLEnvironment.dist.isClient()) {
             MinecraftForge.EVENT_BUS.register(new com.frosty.bedgunwars.minimap.MinimapRenderer());
             MinecraftForge.EVENT_BUS.register(new com.frosty.bedgunwars.client.DeathFeedRenderer());
+            MinecraftForge.EVENT_BUS.register(com.frosty.bedgunwars.client.MvpCutsceneClient.class);
+            MinecraftForge.EVENT_BUS.register(com.frosty.bedgunwars.client.MvpHudOverlay.class);
             com.frosty.bedgunwars.client.TabStatsClientProxy.register();
             com.frosty.bedgunwars.client.KillstreakClientProxy.register();
+            MinecraftForge.EVENT_BUS.register(com.frosty.bedgunwars.client.EndScoreboardClient.class);
         }
         MinimapConfig.register(context);
         PacketHandler.register();
+        com.frosty.bedgunwars.game.TipsManager.load();
         System.out.println("BedGunWars Loaded");
     }
 
@@ -75,12 +81,51 @@ public class BedGunWars {
                     net.minecraft.sounds.SoundEvent.createVariableRangeEvent(
                             net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(MOD_ID, "jet_engine")));
 
+    public static final net.minecraftforge.registries.RegistryObject<net.minecraft.sounds.SoundEvent> GAME_END_MUSIC =
+            SOUNDS.register("gameend", () ->
+                    net.minecraft.sounds.SoundEvent.createVariableRangeEvent(
+                            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(MOD_ID, "gameend")));
+
+    public static final net.minecraftforge.registries.RegistryObject<net.minecraft.sounds.SoundEvent> MVP_SFX =
+            SOUNDS.register("mvpsoundfxdeag", () ->
+                    net.minecraft.sounds.SoundEvent.createVariableRangeEvent(
+                            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(MOD_ID, "mvpsoundfxdeag")));
+
     public static final org.apache.logging.log4j.Logger LOGGER = org.apache.logging.log4j.LogManager.getLogger();
     public static boolean debugLogging = false;
 
     public static void debugLog(String message, Object... args) {
         if (debugLogging) LOGGER.info(message, args);
     }
+
+    @SubscribeEvent
+    public void onServerStopped(net.minecraftforge.event.server.ServerStoppedEvent event) {
+        com.frosty.bedgunwars.game.MvpCutsceneManager.reset();
+        com.frosty.bedgunwars.game.EndScoreboardManager.reset();
+    }
+
+    // mvp cutscene
+    public static final net.minecraftforge.registries.DeferredRegister<net.minecraft.world.entity.EntityType<?>> ENTITIES =
+            net.minecraftforge.registries.DeferredRegister.create(
+                    net.minecraftforge.registries.ForgeRegistries.ENTITY_TYPES, MOD_ID);
+
+    public static final net.minecraftforge.registries.RegistryObject<net.minecraft.world.entity.EntityType<com.frosty.bedgunwars.entity.MvpCharacterEntity>> MVP_CHARACTER =
+            ENTITIES.register("mvp_character", () ->
+                    net.minecraft.world.entity.EntityType.Builder
+                            .<com.frosty.bedgunwars.entity.MvpCharacterEntity>of(
+                                    com.frosty.bedgunwars.entity.MvpCharacterEntity::new,
+                                    net.minecraft.world.entity.MobCategory.MISC)
+                            .sized(0.6f, 1.8f)
+                            .build("mvp_character"));
+
+    public static final net.minecraftforge.registries.RegistryObject<net.minecraft.world.entity.EntityType<com.frosty.bedgunwars.entity.MvpGunEntity>> MVP_GUN =
+            ENTITIES.register("mvp_gun", () ->
+                    net.minecraft.world.entity.EntityType.Builder
+                            .<com.frosty.bedgunwars.entity.MvpGunEntity>of(
+                                    com.frosty.bedgunwars.entity.MvpGunEntity::new,
+                                    net.minecraft.world.entity.MobCategory.MISC)
+                            .sized(0.5f, 0.5f)
+                            .build("mvp_gun"));
 
     @Mod.EventBusSubscriber(modid = BedGunWars.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = net.minecraftforge.api.distmarker.Dist.CLIENT)
     public static class ClientForgeEvents {
@@ -117,8 +162,9 @@ public class BedGunWars {
             // V key — killstreak activation overlay
             if (com.frosty.bedgunwars.minimap.MinimapRenderer.isStarted()) {
                 if (KeyBindings.KILLSTREAK_KEY.consumeClick()) {
-                    com.frosty.bedgunwars.client.KillstreakHudRenderer.overlayOpen =
-                            !com.frosty.bedgunwars.client.KillstreakHudRenderer.overlayOpen;
+                    boolean wasOpen = com.frosty.bedgunwars.client.KillstreakHudRenderer.overlayOpen;
+                    com.frosty.bedgunwars.client.KillstreakHudRenderer.overlayOpen = !wasOpen;
+                    if (!wasOpen) com.frosty.bedgunwars.client.ClientTips.show("11");
                 }
             }
         }
@@ -144,17 +190,24 @@ public class BedGunWars {
     @Mod.EventBusSubscriber(modid = BedGunWars.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = net.minecraftforge.api.distmarker.Dist.CLIENT)
     public static class ClientModEvents {
         @SubscribeEvent
+        public static void onClientSetup(net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent event) {
+            com.frosty.bedgunwars.client.ClientTips.load();
+        }
+
+        @SubscribeEvent
         public static void onRegisterKeyMappings(net.minecraftforge.client.event.RegisterKeyMappingsEvent event) {
             event.register(KeyBindings.GUN_MENU_KEY);
             event.register(KeyBindings.MINIMAP_SETTINGS_KEY);
             event.register(KeyBindings.KILLSTREAK_KEY);
-//            event.register(KeyBindings.TAB_STATS_KEY);
         }
-//        @SubscribeEvent
-//        public static void onRegisterRenderers(net.minecraftforge.client.event.EntityRenderersEvent.RegisterRenderers event) {
-//            event.registerEntityRenderer(BedGunWars.JET.get(),
-//                    com.frosty.bedgunwars.entity.JetRenderer::new);
-//        }
+
+        @SubscribeEvent
+        public static void onRegisterRenderers(net.minecraftforge.client.event.EntityRenderersEvent.RegisterRenderers event) {
+            event.registerEntityRenderer(BedGunWars.MVP_CHARACTER.get(),
+                    com.frosty.bedgunwars.entity.MvpCharacterRenderer::new);
+            event.registerEntityRenderer(BedGunWars.MVP_GUN.get(),
+                    com.frosty.bedgunwars.entity.MvpGunRenderer::new);
+        }
 
         @SubscribeEvent
         public static void onRegisterLayerDefinitions(
@@ -163,11 +216,6 @@ public class BedGunWars {
                     com.frosty.bedgunwars.entity.JetModel.LAYER_LOCATION,
                     com.frosty.bedgunwars.entity.JetModel::createBodyLayer);
         }
-
-//        @SubscribeEvent
-//        public static void onRegisterAdditionalModels(net.minecraftforge.client.event.ModelEvent.RegisterAdditional event) {
-//            event.register(ResourceLocation.fromNamespaceAndPath("bedgunwars", "jet"));
-//        }
     }
 
     @SubscribeEvent
@@ -192,7 +240,8 @@ public class BedGunWars {
             if (session != null && session.isActive()) {
                 for (UUID uuid : session.getPlayers()) {
                     ServerPlayer p = ctx.getSource().getServer().getPlayerList().getPlayer(uuid);
-                    if (p != null) builder.suggest(p.getName().getString());
+                    String name = p != null ? p.getName().getString() : session.getCachedName(uuid);
+                    builder.suggest(name);
                 }
             }
             return builder.buildFuture();
@@ -200,6 +249,31 @@ public class BedGunWars {
 
         event.getDispatcher().register(
                 Commands.literal("game")
+                        .then(Commands.literal("setup")
+                                .requires(source -> source.hasPermission(2))
+                                .executes(ctx -> {
+                                    if (!(ctx.getSource().getEntity() instanceof ServerPlayer player)) {
+                                        ctx.getSource().sendFailure(Component.literal("Must be a player"));
+                                        return 0;
+                                    }
+                                    if (GameManager.hasGame()) {
+                                        ctx.getSource().sendFailure(Component.literal("A game is already running."));
+                                        return 0;
+                                    }
+                                    if (GameSetupUI.hasActiveSetup()) {
+                                        UUID ownerUuid = GameSetupUI.getSetupOwner();
+                                        ServerPlayer owner = ctx.getSource().getServer().getPlayerList().getPlayer(ownerUuid);
+                                        String ownerName = owner != null ? owner.getName().getString() : "Someone";
+                                        ctx.getSource().sendFailure(Component.literal(
+                                                "> " + ownerName + " is already starting a game."));
+                                        return 0;
+                                    }
+                                    GameSetupUI.open(player);
+                                    return 1;
+                                }))
+                        .then(Commands.literal("forcestart")
+                                .requires(source -> source.hasPermission(2))
+                                .executes(ctx -> GameCommand.forceStart(ctx.getSource())))
                         .then(Commands.literal("start")
                                 .requires(source -> source.hasPermission(2))
                                 .then(Commands.literal("solo")
@@ -269,6 +343,14 @@ public class BedGunWars {
                                 .requires(source -> source.hasPermission(2))
                                 .then(Commands.literal("status")
                                         .executes(ctx -> GameDebugCommand.status(ctx.getSource()))
+                                )
+                                .then(Commands.literal("startmvpcutscene")
+                                        .executes(ctx -> GameDebugCommand.startMvpCutscene(ctx.getSource()))
+                                )
+                                .then(Commands.literal("startmvpcutscenewithcamera")
+                                        .executes(ctx -> GameDebugCommand.startMvpCutsceneWithCamera(ctx.getSource())))
+                                .then(Commands.literal("endmvpcutscene")
+                                        .executes(ctx -> GameDebugCommand.endMvpCutscene(ctx.getSource()))
                                 )
                                 .then(Commands.literal("eliminate")
                                         .then(Commands.argument("player", StringArgumentType.word())
@@ -361,5 +443,23 @@ public class BedGunWars {
                         )
 
         );
+
+        // /bgwsetup <sub> — internal command for setup UI click events
+        event.getDispatcher().register(
+                Commands.literal("bgwsetup")
+                        .requires(source -> source.hasPermission(2))
+                        .then(Commands.argument("sub", StringArgumentType.greedyString())
+                                .executes(ctx -> GameSetupUI.handleSetupCommand(
+                                        ctx.getSource(),
+                                        StringArgumentType.getString(ctx, "sub"))))
+        );
     }
+//    @SubscribeEvent
+//    public void onServerChat(net.minecraftforge.event.ServerChatEvent event) {
+//        ServerPlayer player = event.getPlayer();
+//        String message = event.getRawText();
+//        if (GameSetupUI.onChatMessage(player, message)) {
+//            event.setCanceled(true);
+//        }
+//    }
 }

@@ -25,7 +25,7 @@ public class TabStatsScreen {
 
     @SubscribeEvent
     public void onRenderGuiOverlay(RenderGuiOverlayEvent.Post event) {
-        if (event.getOverlay() != VanillaGuiOverlay.HOTBAR.type()) return;
+        if (event.getOverlay() != VanillaGuiOverlay.VIGNETTE.type()) return;
         if (!visible || cachedData == null) return;
 
         Minecraft mc = Minecraft.getInstance();

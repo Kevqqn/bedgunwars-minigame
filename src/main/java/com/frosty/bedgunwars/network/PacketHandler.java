@@ -51,6 +51,22 @@ public class PacketHandler {
                 LoadoutSyncPacket::encode, LoadoutSyncPacket::decode, LoadoutSyncPacket::handle);
         CHANNEL.registerMessage(id++, DeathFeedPacket.class,
                 DeathFeedPacket::encode, DeathFeedPacket::decode, DeathFeedPacket::handle);
+        CHANNEL.registerMessage(id++, MvpPacket.class,
+                MvpPacket::encode, MvpPacket::decode, MvpPacket::handle);
+        CHANNEL.registerMessage(id++, MvpEndPacket.class,
+                MvpEndPacket::encode, MvpEndPacket::decode, MvpEndPacket::handle);
+        CHANNEL.registerMessage(id++, EndScoreboardPacket.class,
+                EndScoreboardPacket::encode, EndScoreboardPacket::decode, EndScoreboardPacket::handle);
+        CHANNEL.registerMessage(id++, MvpPreFadePacket.class,
+                MvpPreFadePacket::encode, MvpPreFadePacket::decode, MvpPreFadePacket::handle);
+        CHANNEL.registerMessage(id++, MvpSkinPrefetchPacket.class,
+                MvpSkinPrefetchPacket::encode, MvpSkinPrefetchPacket::decode, MvpSkinPrefetchPacket::handle);
+        CHANNEL.registerMessage(id++, MvpDebugEndPacket.class,
+                MvpDebugEndPacket::encode, MvpDebugEndPacket::decode, MvpDebugEndPacket::handle);
+        CHANNEL.registerMessage(id++, EndScoreboardStopPacket.class,
+                EndScoreboardStopPacket::encode, EndScoreboardStopPacket::decode, EndScoreboardStopPacket::handle);
+        CHANNEL.registerMessage(id++, ShowTipPacket.class,
+                ShowTipPacket::encode, ShowTipPacket::decode, ShowTipPacket::handle);
     }
 
     public static void sendToClient(net.minecraft.server.level.ServerPlayer player, Object packet) {

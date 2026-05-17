@@ -57,6 +57,7 @@ public class GameCleanupManager {
             PlayerTeam t = scoreboard.getPlayerTeam("bgw_team_" + i);
             if (t != null) scoreboard.removePlayerTeam(t);
         }
+        com.frosty.bedgunwars.game.GameSetupUI.close();
         session.end();
         GameManager.end();
         broadcast(server, endMessage);

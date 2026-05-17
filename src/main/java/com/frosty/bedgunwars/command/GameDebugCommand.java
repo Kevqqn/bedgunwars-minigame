@@ -1,9 +1,6 @@
 package com.frosty.bedgunwars.command;
 
-import com.frosty.bedgunwars.game.GameManager;
-import com.frosty.bedgunwars.game.GamePhase;
-import com.frosty.bedgunwars.game.GameSession;
-import com.frosty.bedgunwars.game.WinManager;
+import com.frosty.bedgunwars.game.*;
 import com.frosty.bedgunwars.network.PacketHandler;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
@@ -234,16 +231,9 @@ public class GameDebugCommand {
         }
 
         String displayName = target.getName().getString();
-
-        // Send title screen to all players
-        for (UUID uuid : session.getPlayers()) {
-            ServerPlayer p = source.getServer().getPlayerList().getPlayer(uuid);
-            if (p != null) WinManager.sendTitle(p, displayName + " won the game!", "(Debug force-win)");
-        }
-
-        session.setWinner(displayName);
-        broadcast(source.getServer(), displayName + " wins! (Debug force-win)");
-        source.sendSuccess(() -> Component.literal("Force-win set for: " + displayName), false);
+        WinManager.announceWinner(session, displayName);
+        session.setPhase(GamePhase.WINNER_ANNOUNCED);
+        source.sendSuccess(() -> Component.literal("Force-win triggered for: " + displayName), false);
         return 1;
     }
 
@@ -348,6 +338,49 @@ public class GameDebugCommand {
         com.frosty.bedgunwars.BedGunWars.debugLogging = enabled == 1;
         source.sendSuccess(() -> Component.literal(
                 "Debug logging " + (com.frosty.bedgunwars.BedGunWars.debugLogging ? "§aenabled" : "§cdisabled")), false);
+        return 1;
+    }
+
+    // start mvp cutscene
+    public static int startMvpCutscene(CommandSourceStack source) {
+        try {
+            ServerPlayer player = source.getPlayerOrException();
+            if (MvpCutsceneManager.isRunning()) {
+                source.sendFailure(Component.literal("MVP cutscene already running."));
+                return 0;
+            }
+            MvpCutsceneManager.startDebug(source.getServer(), player);
+            source.sendSuccess(() -> Component.literal("§aMVP cutscene started (debug)."), false);
+            return 1;
+        } catch (Exception e) {
+            source.sendFailure(Component.literal("Error: " + e.getMessage()));
+            return 0;
+        }
+    }
+
+    public static int startMvpCutsceneWithCamera(CommandSourceStack source) {
+        try {
+            ServerPlayer player = source.getPlayerOrException();
+            if (MvpCutsceneManager.isRunning()) {
+                source.sendFailure(Component.literal("MVP cutscene already running."));
+                return 0;
+            }
+            MvpCutsceneManager.startDebugWithCamera(source.getServer(), player);
+            source.sendSuccess(() -> Component.literal("§aMVP cutscene started with camera (debug)."), false);
+            return 1;
+        } catch (Exception e) {
+            source.sendFailure(Component.literal("Error: " + e.getMessage()));
+            return 0;
+        }
+    }
+
+    public static int endMvpCutscene(CommandSourceStack source) {
+        if (!MvpCutsceneManager.isRunning()) {
+            source.sendFailure(Component.literal("No MVP cutscene running."));
+            return 0;
+        }
+        MvpCutsceneManager.endDebug(source.getServer());
+        source.sendSuccess(() -> Component.literal("§aMVP cutscene ended."), false);
         return 1;
     }
 

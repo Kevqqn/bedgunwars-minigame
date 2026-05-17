@@ -1,14 +1,8 @@
 {
-  "uav_self": {
-    "sounds": [{"name": "bedgunwars:lmaouavself", "stream": false}]
-  },
-  "uav_enemy": {
-    "sounds": [{"name": "bedgunwars:lmaouavenemy", "stream": false}]
-  },
-  "jet_engine": {
-    "sounds": [{"name": "bedgunwars:jetengine", "strea": false}]
-  },
-  "airstrike": {
-    "sounds": [{"name": "bedgunwars:airstrike", "stream": false}]
-  }
+  "uav_self": { "sounds": [{"name": "bedgunwars:uav_self", "stream": true}] },
+  "uav_enemy": { "sounds": [{"name": "bedgunwars:uav_enemy", "stream": true}] },
+  "airstrike": { "sounds": [{"name": "bedgunwars:airstrike"}] },
+  "jet_engine": { "sounds": [{"name": "bedgunwars:jet_engine", "stream": true}] },
+  "gameend": { "sounds": [{"name": "bedgunwars:gameend", "stream": true}] },
+  "mvpsoundfxdeag": { "sounds": [{"name": "bedgunwars:mvpsoundfxdeag"}] }
 }

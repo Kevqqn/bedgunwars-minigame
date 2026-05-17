@@ -45,6 +45,8 @@ public class KillstreakManager {
         pushState(player, server, session);
     }
 
+    private final java.util.Set<UUID> tippedPlayers = new java.util.HashSet<>();
+
     public void award(UUID uuid, KillstreakType type, MinecraftServer server) {
         earned.computeIfAbsent(uuid, k -> new EnumMap<>(KillstreakType.class))
                 .merge(type, 1, Integer::sum);
@@ -53,6 +55,7 @@ public class KillstreakManager {
             sp.sendSystemMessage(Component.literal(
                     "§6[Killstreak] §e" + type.displayName + " §7ready! Press §eV §7to activate."));
             SoundHelper.playNoteClick(sp, SoundHelper.noteToPitch(22));
+            if (tippedPlayers.add(uuid)) TipsManager.sendTip(sp, "10");
         }
     }
 
@@ -171,8 +174,13 @@ public class KillstreakManager {
                 toGive -= count;
             }
         }
-
         sp.sendSystemMessage(Component.literal("§6[Juggernaut] §eActivated."));
+        String juggName = sp.getName().getString();
+        for (ServerPlayer p : sp.getServer().getPlayerList().getPlayers()) {
+            if (!p.getUUID().equals(sp.getUUID())) {
+                p.sendSystemMessage(Component.literal("§6[Juggernaut] §f" + juggName + " §ehas acquired Juggernaut!"));
+            }
+        }
     }
 
     private void removeJuggernaut(ServerPlayer sp) {
@@ -276,8 +284,11 @@ public class KillstreakManager {
         final ServerLevel level;
         final double px, pz;
         int ticksRemaining;
-        PendingExplosion(ServerLevel lvl, double px, double pz, int delay) {
+        final UUID callerUuid;
+        final String callerTeam;
+        PendingExplosion(ServerLevel lvl, double px, double pz, int delay, UUID callerUuid, String callerTeam) {
             this.level = lvl; this.px = px; this.pz = pz; this.ticksRemaining = delay;
+            this.callerUuid = callerUuid; this.callerTeam = callerTeam;
         }
     }
     private final List<PendingExplosion> pendingExplosions = new ArrayList<>();
@@ -361,7 +372,8 @@ public class KillstreakManager {
                 final int jetDelay = Math.max(1, tickDelay - 40); // spawn jet delay
 
                 spawnJetDelayed(level, jetSpawnX, jetSpawnY, jetSpawnZ, vel, jetDelay);
-                pendingExplosions.add(new PendingExplosion(level, px, pz, tickDelay));
+                pendingExplosions.add(new PendingExplosion(level, px, pz, tickDelay, uuid,
+                        session.getPlayerTeam(uuid)));
                 tickDelay += pointGap;
             }
             tickDelay += waveGap;
@@ -394,9 +406,17 @@ public class KillstreakManager {
                     net.minecraft.world.level.Level.ExplosionInteraction.NONE);
             net.minecraft.world.phys.AABB aabb = new net.minecraft.world.phys.AABB(
                     fpx - 7, fpy - 4, fpz - 7, fpx + 7, fpy + 4, fpz + 7);
+            GameSession session = GameManager.getSession();
             for (net.minecraft.world.entity.LivingEntity ent :
                     e.level.getEntitiesOfClass(
                             net.minecraft.world.entity.LivingEntity.class, aabb)) {
+                // skip teammates (but not the caller themselves)
+                if (session != null && ent instanceof ServerPlayer target
+                        && e.callerTeam != null
+                        && !target.getUUID().equals(e.callerUuid)) {
+                    String targetTeam = session.getPlayerTeam(target.getUUID());
+                    if (e.callerTeam.equals(targetTeam)) continue;
+                }
                 double dist = Math.sqrt(
                         Math.pow(ent.getX() - fpx, 2) +
                                 Math.pow(ent.getY() - fpy, 2) +

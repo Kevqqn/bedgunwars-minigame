@@ -1,5 +1,6 @@
 package com.frosty.bedgunwars.game;
 
+import com.frosty.bedgunwars.network.PacketHandler;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket;
@@ -69,14 +70,31 @@ public class WinManager {
         }
     }
 
-    private static void announceWinner(GameSession session, String winnerName) {
+    public static void announceWinner(GameSession session, String winnerName) {
         session.setWinner(winnerName);
+        UUID mvpUUID = null;
+        for (UUID uuid : session.getPlayers()) {
+            ServerPlayer p = session.getLevel().getServer().getPlayerList().getPlayer(uuid);
+            if (p != null && p.getName().getString().equals(winnerName)) {
+                mvpUUID = uuid;
+                break;
+            }
+        }
+        session.setWinnerUUID(mvpUUID);
+        // MvpCutsceneManager.start() is called from GameTickHandler after title is shown
+        // Start skin prefetch on clients immediately — gives full title display time to fetch
+        PacketHandler.sendToAllClients(session.getLevel().getServer(),
+                new com.frosty.bedgunwars.network.MvpSkinPrefetchPacket(
+                        mvpUUID != null ? mvpUUID : new java.util.UUID(0, 0),
+                        winnerName));
         for (UUID uuid : session.getPlayers()) {
             ServerPlayer player = session.getLevel().getServer().getPlayerList().getPlayer(uuid);
             if (player == null) continue;
             sendTitle(player, winnerName + " won the game!", "");
             SoundHelper.playLevelUp(player);
         }
+        SoundHelper.playToAll(session.getLevel().getServer(),
+                com.frosty.bedgunwars.BedGunWars.GAME_END_MUSIC.get(), 4.0f);
         ServerPlayer winner = null;
         for (UUID uuid : session.getPlayers()) {
             ServerPlayer p = session.getLevel().getServer().getPlayerList().getPlayer(uuid);

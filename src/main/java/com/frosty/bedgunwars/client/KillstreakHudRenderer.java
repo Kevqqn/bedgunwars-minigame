@@ -42,6 +42,7 @@ public class KillstreakHudRenderer {
         int H = mc.getWindow().getGuiScaledHeight();
         if (overlayOpen) renderOverlay(gui, mc, W, H);
         else renderHud(gui, mc, H);
+        ClientTips.renderHud(gui);
     }
 
     // ── Bottom-left HUD ──

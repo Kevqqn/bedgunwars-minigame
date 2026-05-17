@@ -28,7 +28,7 @@ public class BedUpgradeManager {
             {300,    0,    0,    0,    0,    0}, // SPEED
             {100,  300,    0,    0,    0,    0}, // AXE
             {400,    0,    0,    0,    0,    0}, // BED_SENSE
-            {200,  300,  450,  500,  600, 1000}, // HEALING_STATION
+            {200,  300,  450,  500,  600,  850}, // HEALING_STATION
     };
 
     // Max tiers

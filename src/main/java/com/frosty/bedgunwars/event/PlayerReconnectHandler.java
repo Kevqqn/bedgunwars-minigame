@@ -1,15 +1,12 @@
 package com.frosty.bedgunwars.event;
 
-import com.frosty.bedgunwars.game.GameManager;
-import com.frosty.bedgunwars.game.GameSession;
+import com.frosty.bedgunwars.game.*;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.GameType;
 import net.minecraft.network.chat.Component;
-import com.frosty.bedgunwars.game.GamePhase;
-import com.frosty.bedgunwars.game.WinManager;
 import com.frosty.bedgunwars.ui.GameScoreboard;
 
 import java.util.UUID;
@@ -31,22 +28,27 @@ public class PlayerReconnectHandler {
             player.sendSystemMessage(Component.literal("§aYou reconnected as host. Game continues."));
             GameScoreboard.reinitPlayer(uuid);
             GameScoreboard.update(session);
+            TabStatsManager.push(player.getServer(), session);
             return;
         }
 
         if (!session.getPlayers().contains(uuid)) return;
         session.markOnline(uuid);
 
-        if (phase == GamePhase.PREPARATION) {
+        if (phase == GamePhase.PREPARATION || phase == GamePhase.WAITING_PLAYERS) {
             session.getDisconnectedDuringPrep().remove(uuid);
 
-            player.setGameMode(GameType.SURVIVAL);
-            giveStarterItems(player, session);
-
-            GameScoreboard.reinitPlayer(uuid);
-            GameScoreboard.update(session);
-
-            player.sendSystemMessage(Component.literal("§aYou reconnected. Game is in preparation phase."));
+            if (phase == GamePhase.PREPARATION) {
+                player.setGameMode(GameType.SURVIVAL);
+                giveStarterItems(player, session);
+                GameScoreboard.reinitPlayer(uuid);
+                GameScoreboard.update(session);
+                TabStatsManager.push(player.getServer(), session);
+                player.sendSystemMessage(Component.literal("§aYou reconnected. Game is in preparation phase."));
+                return;
+            } else {
+                player.sendSystemMessage(Component.literal("§aYou reconnected. Match starts soon — waiting for players."));
+            }
             return;
         }
 
@@ -68,6 +70,7 @@ public class PlayerReconnectHandler {
             player.sendSystemMessage(Component.literal("You reconnected and are still in the match."));
             GameScoreboard.update(session);
             GameScoreboard.reinitPlayer(player.getUUID());
+            TabStatsManager.push(player.getServer(), session);
             // Sync border to reconnected player
             syncBorderToPlayer(player, session);
         }
@@ -80,6 +83,7 @@ public class PlayerReconnectHandler {
             player.sendSystemMessage(Component.literal("§cYou reconnected during Endgame."));
             GameScoreboard.reinitPlayer(uuid);
             GameScoreboard.update(session);
+            TabStatsManager.push(player.getServer(), session);
             // Sync border to reconnected player
             syncBorderToPlayer(player, session);
         }
