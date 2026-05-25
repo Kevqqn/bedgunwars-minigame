@@ -15,7 +15,6 @@ import java.util.UUID;
 
 public class EndScoreboardManager {
 
-    // 160 ticks = 8s total (10 fade in + 140 visible + 10 fade out)
     public static final int SCOREBOARD_TICKS = 160;
 
     private static boolean running = false;
@@ -23,8 +22,8 @@ public class EndScoreboardManager {
 
     public static boolean isRunning() { return running; }
 
-    // Called when MVP cutscene cleanup fires — tries to start scoreboard view
-    // Returns true if scoreboard view started, false if we should go straight to cleanup
+    // Called when MVP cutscene cleanup fires tries to start scoreboard view
+    // Returns true if scoreboard view started, false if straight to cleanup
     public static boolean tryStart(MinecraftServer server, GameSession session) {
         BlockPos beacon = session.getBeaconPos();
         if (beacon == null) return false;
@@ -34,12 +33,11 @@ public class EndScoreboardManager {
         // Find closest trapped chest within 50 blocks of beacon
         BlockPos chestPos = findClosestTrappedChest(level, beacon, 50);
 
-        // Fallback: 5 blocks from beacon if no chest found
+        // Fallback 5 blocks from beacon if no chest found
         if (chestPos == null) {
             chestPos = beacon.offset(5, 0, 0);
         }
 
-        // Camera: 10 blocks above chest
         double camX = chestPos.getX() + 0.5;
         double camY = chestPos.getY() + 10.0;
         double camZ = chestPos.getZ() + 0.5;

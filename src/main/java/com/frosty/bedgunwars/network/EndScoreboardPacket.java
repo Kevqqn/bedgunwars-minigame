@@ -10,9 +10,9 @@ import java.util.function.Supplier;
 
 public class EndScoreboardPacket {
 
-    // Camera pos — 10 blocks above trapped chest
+    // Camera pos 10 blocks above trapped chest
     public final double camX, camY, camZ;
-    // Beacon pos — camera faces this
+    // Beacon pos camera faces this
     public final double beaconX, beaconY, beaconZ;
     // Piggybacking the existing TabStatsPacket data
     public final TabStatsPacket stats;

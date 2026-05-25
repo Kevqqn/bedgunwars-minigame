@@ -28,7 +28,7 @@ public class KillstreakManager {
 
     private static final UUID JUGG_MODIFIER = UUID.fromString("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
 
-    //   Kill / Death
+    // Kill / Death
 
     public void onKill(UUID killer, MinecraftServer server, GameSession session) {
         int streak = streakKills.merge(killer, 1, Integer::sum);
@@ -59,7 +59,7 @@ public class KillstreakManager {
         }
     }
 
-    //   Activation                              ─
+    // Activation
 
     public void activate(UUID uuid, KillstreakType type, MinecraftServer server, GameSession session) {
         Map<KillstreakType, Integer> q = earned.get(uuid);
@@ -85,12 +85,12 @@ public class KillstreakManager {
                 new KillstreakEffectPacket(KillstreakEffectPacket.Effect.UAV_START));
         sp.sendSystemMessage(Component.literal("§6[UAV] §eActive! Enemies revealed on minimap."));
 
-        // Sound A — activating player only
+        // Sound A activating player only
         sp.level().playSound(null, sp.getX(), sp.getY(), sp.getZ(),
                 com.frosty.bedgunwars.BedGunWars.UAV_SELF.get(),
                 net.minecraft.sounds.SoundSource.PLAYERS, 1.0f, 1.0f);
 
-        // Sound B — all other players in session
+        // Sound B all other players in session
         for (UUID otherUuid : server.getPlayerList().getPlayers().stream()
                 .map(net.minecraft.server.level.ServerPlayer::getUUID)
                 .toList()) {
@@ -223,7 +223,7 @@ public class KillstreakManager {
         }
     }
 
-    //   Fake glow packet
+    // Fake glow packet
 
     private void sendFakeGlow(ServerPlayer receiver, ServerPlayer target, boolean glow) {
         try {
@@ -240,7 +240,7 @@ public class KillstreakManager {
         } catch (Exception ignored) {}
     }
 
-    //   Tick    ─
+    // Tick
 
     public void tick(MinecraftServer server, GameSession session) {
         tickExplosions();
@@ -278,7 +278,7 @@ public class KillstreakManager {
         });
     }
 
-    //   Pending explosions (tick-counter based)
+    // Pending explosions (tick-counter based)
 
     private static class PendingExplosion {
         final ServerLevel level;
@@ -293,13 +293,13 @@ public class KillstreakManager {
     }
     private final List<PendingExplosion> pendingExplosions = new ArrayList<>();
 
-    //   Air Support explosions
+    // Air Support explosions
 
 
 
     public void fireAirSupport(UUID uuid, List<double[]> points, MinecraftServer server, GameSession session) {
         if (points.isEmpty()) {
-            // Cancelled — refund and restore
+            // Cancelled refund and restore
             earned.computeIfAbsent(uuid, k -> new java.util.EnumMap<>(KillstreakType.class))
                     .merge(KillstreakType.AIR_SUPPORT, 1, Integer::sum);
             ServerPlayer cancelled = server.getPlayerList().getPlayer(uuid);
@@ -311,7 +311,7 @@ public class KillstreakManager {
             return;
         }
 
-        // Confirmed — remove samula3, restore displaced, play sound
+        // Confirmed remove samula3, restore displaced, play sound
         ServerPlayer sp = server.getPlayerList().getPlayer(uuid);
         if (sp != null) {
             for (int i = 0; i < sp.getInventory().getContainerSize(); i++) {
@@ -430,7 +430,7 @@ public class KillstreakManager {
         });
     }
 
-    //   State push
+    // State push
 
     public void pushState(UUID uuid, MinecraftServer server, GameSession session) {
         Map<KillstreakType, Integer> q = earned.getOrDefault(uuid, Collections.emptyMap());

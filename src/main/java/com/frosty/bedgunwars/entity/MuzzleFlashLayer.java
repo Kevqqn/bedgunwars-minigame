@@ -57,9 +57,9 @@ public class MuzzleFlashLayer extends GeoRenderLayer<MvpGunEntity> {
 
         poseStack.pushPose();
 
-//        double ex = animatable.getX();
-//        double ey = animatable.getY();
-//        double ez = animatable.getZ();
+// double ex = animatable.getX();
+// double ey = animatable.getY();
+// double ez = animatable.getZ();
 
         float[] worldPos = getWorldPivot(flashBone);
         float bx = worldPos[0] + 0.1f;

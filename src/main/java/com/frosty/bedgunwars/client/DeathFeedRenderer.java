@@ -23,7 +23,7 @@ public class DeathFeedRenderer {
     private static final int ENTRY_HEIGHT   = 14;
     private static final int ICON_W         = 36;
     private static final int ICON_H         = 12;
-    // private static final int FEED_WIDTH     = 160;
+    // private static final int FEED_WIDTH = 160;
     private static final int MAX_ENTRIES    = 5;
 
 

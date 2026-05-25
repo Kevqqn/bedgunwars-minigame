@@ -91,12 +91,12 @@ public class PlayerReconnectHandler {
     private static void giveStarterItems(ServerPlayer player, GameSession session) {
         UUID uuid = player.getUUID();
 
-        // Only give bed if player hasn't placed one yet
+        // give bed if player hasnt got it
         if (!session.hasPlacedBed(uuid)) {
             player.getInventory().setItem(0, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.RED_BED, 1));
         }
 
-        // Always restore these if missing
+        // Restore these if missing
         if (player.getInventory().getItem(1).isEmpty())
             player.getInventory().setItem(1, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.GOLDEN_APPLE, 1));
         if (player.getInventory().getItem(2).isEmpty())
@@ -104,7 +104,7 @@ public class PlayerReconnectHandler {
         if (player.getInventory().getItem(3).isEmpty())
             player.getInventory().setItem(3, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.STONE, 64));
 
-        // Always restore armor if missing
+        // restore armor if missing
         if (player.getInventory().armor.get(3).isEmpty())
             player.getInventory().armor.set(3, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.NETHERITE_HELMET));
         if (player.getInventory().armor.get(2).isEmpty())
@@ -119,7 +119,7 @@ public class PlayerReconnectHandler {
 
     private static void syncBorderToPlayer(net.minecraft.server.level.ServerPlayer player,
                                            com.frosty.bedgunwars.game.GameSession session) {
-        // Delay by 5 ticks to ensure player is fully loaded into the dimension
+        // 5 tick delay for resync
         player.getServer().tell(new net.minecraft.server.TickTask(
                 player.getServer().getTickCount() + 5, () -> {
             net.minecraft.world.level.border.WorldBorder border =

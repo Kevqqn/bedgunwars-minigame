@@ -40,7 +40,7 @@ public class PlayerDeathHandler {
                         Component.literal("§a+$150 §7| §eBalance: §f$" + newBalance)));
                 session.getKillstreakManager().onKill(killer.getUUID(), killer.getServer(), session);
 
-                // Death feed packet — sends gun HUD texture + names to all clients
+                // Death feed packet sends gun HUD texture + names to all clients
                 net.minecraft.world.item.ItemStack held = killer.getMainHandItem();
                 if (held.getItem() instanceof com.tacz.guns.api.item.IGun iGun) {
                     net.minecraft.resources.ResourceLocation gunId = iGun.getGunId(held);
@@ -80,7 +80,7 @@ public class PlayerDeathHandler {
             TipsManager.sendTip(player, "12");
         }
 
-        // Deathmatch death — never eliminate, always respawn
+        // Deathmatch death never eliminate, always respawn
         if (session.isDeathmatch() && session.getPhase() == GamePhase.ACTIVE) {
             event.setCanceled(true);
             player.setHealth(player.getMaxHealth());
@@ -204,7 +204,7 @@ public class PlayerDeathHandler {
             }
             p.setHealth(p.getMaxHealth());
             p.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
-            // gives 5-second spawn immunity — drops immediately on dealing damage
+            // gives 5-second spawn immunity drops immediately on dealing damage
             p.addEffect(new net.minecraft.world.effect.MobEffectInstance(
                     net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE, 100, 4, false, false, false));
             session.markSpawnImmune(uuid);

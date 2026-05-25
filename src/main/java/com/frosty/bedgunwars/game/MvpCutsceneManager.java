@@ -17,12 +17,8 @@ import java.util.UUID;
 public class MvpCutsceneManager {
 
     // Animation is 136 ticks long
-    // Session flow: spawn at tick 10, animation ends at 146, cleanup at 166 (1s buffer)
     private static final int SPAWN_TICK = 10;
-    private static final int ANIM_END_TICK = SPAWN_TICK + 136; // = 146
-    private static final int CLEANUP_TICK = ANIM_END_TICK + 20; // = 166, 1s buffer after anim
 
-    // Debug flow: spawn immediately at tick 0, cleanup at 156
     private static final int DEBUG_CLEANUP_TICK = 130 + 4; //
 
     private static int cutsceneTick = 0;
@@ -75,7 +71,6 @@ public class MvpCutsceneManager {
         ServerLevel level = session.getLevel();
         BlockPos beacon = session.getBeaconPos();
 
-        // Find MVP stage spawner, fallback to beacon position
         BlockPos stagePos = findMvpStage(level, beacon, 50);
         double x, y, z;
         if (stagePos != null) {
@@ -120,7 +115,6 @@ public class MvpCutsceneManager {
         running = false;
         if (characterEntity != null) { characterEntity.discard(); characterEntity = null; }
         if (gunEntity != null) { gunEntity.discard(); gunEntity = null; }
-        // Try to start scoreboard view — if it fails, go straight to cleanup
         boolean started = com.frosty.bedgunwars.game.EndScoreboardManager.tryStart(server, session);
         if (!started) {
             session.setWinnerDelay(0);
@@ -149,7 +143,6 @@ public class MvpCutsceneManager {
 
         ServerLevel level = invoker.serverLevel();
 
-        // Debug has no session, so no beacon — spawn at invoker position
         double x = invoker.getX();
         double y = invoker.getY();
         double z = invoker.getZ();

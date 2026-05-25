@@ -371,7 +371,7 @@ public class GameSession {
     // Disconnect
     public void handlePlayerDisconnect(UUID uuid, boolean eliminate) {
         if (eliminate) {
-            // Actually eliminate — remove from everything
+            // Actually eliminate remove from everything
             joinedPlayers.remove(uuid);
             players.remove(uuid);
             pendingRespawnPlayers.remove(uuid);
@@ -380,7 +380,7 @@ public class GameSession {
             if (playerBeds.containsKey(uuid)) removePlayerBed(uuid);
             brokenBeds.remove(uuid);
         } else {
-            // Just temporarily offline — keep in players set
+            // Just temporarily offline keep in players set
             markOffline(uuid);
             pendingRespawnPlayers.remove(uuid);
         }

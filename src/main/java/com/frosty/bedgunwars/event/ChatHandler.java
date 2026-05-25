@@ -32,9 +32,8 @@ public class ChatHandler {
                     @Override
                     public void channelRead(ChannelHandlerContext ctx, Object msg) {
                         if (msg instanceof ServerboundChatPacket packet) {
-                            // schedule on server thread — netty runs on a different thread
+                            // Schedule this on server thread, netty not here
                             server.execute(() -> handleChat(player, packet.message(), server));
-                            return; // swallow packet — we handle distribution
                         }
                         ctx.fireChannelRead(msg);
                     }
@@ -58,10 +57,8 @@ public class ChatHandler {
     }
 
     private static void handleChat(ServerPlayer player, String message, MinecraftServer server) {
-        // setup UI input interception — takes priority
         if (com.frosty.bedgunwars.game.GameSetupUI.onChatMessage(player, message)) return;
 
-        // no active game — vanilla-style broadcast to everyone
         if (!GameManager.hasGame()) {
             broadcastVanilla(player, message, server);
             return;
@@ -73,7 +70,7 @@ public class ChatHandler {
             return;
         }
 
-        // during STARTING/WAITING_PLAYERS — treat as normal chat
+        // during STARTING/WAITING_PLAYERS treat as normal chat
         if (session.getPhase() == GamePhase.STARTING
                 || session.getPhase() == GamePhase.WAITING_PLAYERS) {
             broadcastVanilla(player, message, server);
@@ -86,7 +83,7 @@ public class ChatHandler {
         boolean isActivePlayer = isInGame && !isSpectator;
 
         if (isSpectator) {
-            // spectator chat — only spectators and ops
+            // spectator chat only spectators and ops
             String formatted = "§8[SPECTATOR] §7" + player.getName().getString() + ": " + message;
             for (ServerPlayer p : server.getPlayerList().getPlayers()) {
                 UUID pUuid = p.getUUID();
@@ -97,7 +94,7 @@ public class ChatHandler {
                 }
             }
         } else if (isActivePlayer) {
-            // in-game chat — all in-game players and spectators, not non-joined
+            // in-game chat all in-game players and spectators, not non-joined
             String formatted = "§f[GAME] §e" + player.getName().getString() + ": §f" + message;
             for (ServerPlayer p : server.getPlayerList().getPlayers()) {
                 UUID pUuid = p.getUUID();
@@ -107,7 +104,7 @@ public class ChatHandler {
                 }
             }
         } else {
-            // non-joined chat — non-joined players and ops only
+            // non-joined chat non-joined players and ops only
             String formatted = "§7[LOBBY] " + player.getName().getString() + ": " + message;
             for (ServerPlayer p : server.getPlayerList().getPlayers()) {
                 UUID pUuid = p.getUUID();

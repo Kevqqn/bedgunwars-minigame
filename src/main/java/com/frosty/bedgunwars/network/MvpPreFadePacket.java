@@ -10,13 +10,13 @@ import java.util.function.Supplier;
 
 public class MvpPreFadePacket {
 
-//    public final UUID winnerUUID;
-//    public final String winnerName;
+// public final UUID winnerUUID;
+// public final String winnerName;
 //
-//    public MvpPreFadePacket(UUID winnerUUID, String winnerName) {
-//        this.winnerUUID = winnerUUID;
-//        this.winnerName = winnerName;
-//    }
+// public MvpPreFadePacket(UUID winnerUUID, String winnerName) {
+// this.winnerUUID = winnerUUID;
+// this.winnerName = winnerName;
+// }
 
     public static void encode(MvpPreFadePacket pkt, FriendlyByteBuf buf) {}
     public static MvpPreFadePacket decode(FriendlyByteBuf buf) { return new MvpPreFadePacket(); }

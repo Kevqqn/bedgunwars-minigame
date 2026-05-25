@@ -9,7 +9,7 @@ import java.util.*;
 public class GunSelectionManager {
 
     private final Map<UUID, List<ResourceLocation>> playerGunSelections = new HashMap<>();
-    // player → gun slot (0/1/2) → attachment type → attachment id
+    // player to gun slot (0/1/2) to attachment type to attachment id
     private final Map<UUID, Map<Integer, Map<AttachmentType, ResourceLocation>>> playerGunAttachments = new HashMap<>();
     private final Map<UUID, List<ResourceLocation>> playerThrowableSelections = new HashMap<>();
 
@@ -44,7 +44,7 @@ public class GunSelectionManager {
         return list;
     }
 
-    // ── Gun selections ────────────────────────────────────────────────────────
+    // Gun selections
 
     public void setGunSelections(UUID player, List<ResourceLocation> selections) {
         playerGunSelections.put(player, new ArrayList<>(selections));
@@ -66,7 +66,7 @@ public class GunSelectionManager {
         return playerGunSelections.containsKey(player) && !playerGunSelections.get(player).isEmpty();
     }
 
-    // ── Per-gun attachments ───────────────────────────────────────────────────
+    // Per-gun attachments
 
     public void setAttachment(UUID player, int gunSlot, AttachmentType type, ResourceLocation attachmentId) {
         playerGunAttachments
@@ -97,7 +97,7 @@ public class GunSelectionManager {
         return playerGunAttachments.getOrDefault(player, new HashMap<>());
     }
 
-    // ── Throwables ────────────────────────────────────────────────────────────
+    // Throwables
 
     public void setThrowableSelections(UUID player, List<ResourceLocation> selections) {
         playerThrowableSelections.put(player, new ArrayList<>(selections));

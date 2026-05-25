@@ -81,7 +81,7 @@ public class MvpHudOverlay {
             // Ticks since HUD appeared
             long hudElapsed = elapsed - MvpCutsceneClient.HUD_SHOW_TICK;
 
-            // Every 3 ticks one more character reveals — scrambled prefix replaced by real text
+            // Every 3 ticks one more character reveals scrambled prefix replaced by real text
             String mvpFull   = "Match MVP!";
             String nameFull  = MvpCutsceneClient.getWinnerName();
             String killsFull = MvpCutsceneClient.getKills() < 0 ? "Kills: DEBUG" : "Kills: " + MvpCutsceneClient.getKills();
@@ -90,7 +90,7 @@ public class MvpHudOverlay {
             String nameLine  = buildRevealText(nameFull, hudElapsed - 6, 3);  // name reveals slightly after MVP
             String killsLine = buildRevealText(killsFull, hudElapsed - 12, 3); // kills reveals after name
 
-            // "Match MVP!" — large, gold
+            // "Match MVP!" large, gold
             gui.pose().pushPose();
             gui.pose().translate(centerX, mvpY, 0);
             gui.pose().scale(3.0f, 3.0f, 1.0f);
@@ -98,7 +98,7 @@ public class MvpHudOverlay {
             gui.drawCenteredString(mc.font, mvpLine, centerX, mvpY, gold);
             gui.pose().popPose();
 
-            // "<name>" — medium, white
+            // "<name>" medium, white
             gui.pose().pushPose();
             gui.pose().translate(centerX, nameY, 0);
             gui.pose().scale(2.0f, 2.0f, 1.0f);
@@ -106,7 +106,7 @@ public class MvpHudOverlay {
             gui.drawCenteredString(mc.font, nameLine, centerX, nameY, white);
             gui.pose().popPose();
 
-            // "Kills: X" — large, white
+            // "Kills: X" large, white
             gui.pose().pushPose();
             gui.pose().translate(centerX, killsY, 0);
             gui.pose().scale(3.0f, 3.0f, 1.0f);

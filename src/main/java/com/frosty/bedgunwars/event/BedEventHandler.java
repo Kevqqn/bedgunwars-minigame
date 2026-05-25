@@ -32,7 +32,7 @@ public class BedEventHandler {
 
         BlockState placed = event.getPlacedBlock();
 
-        // Guard: ignore air blocks and anything that isn't a BedBlock
+        // Ignore air blocks and BedBlock
         // revents empty hand right-clicks from triggering this handler
         if (placed == null || placed.isAir() || !(placed.getBlock() instanceof BedBlock)) return;
 
@@ -200,7 +200,7 @@ public class BedEventHandler {
         UUID uuid = player.getUUID();
         if (!session.getPlayers().contains(uuid)) return;
 
-        // Check if this is the player's own bed or their team's bed
+        // bed check if teams bed or players bed
         String team = BedUpgradeMenu.getTeamKey(player, session);
         UUID bedOwner = session.getMode() == GameModeType.TEAMS
                 ? session.getTeamBedOwner(session.getPlayerTeam(uuid))
@@ -209,7 +209,6 @@ public class BedEventHandler {
         BlockPos bedPos = session.getPlayerBed(bedOwner);
         if (bedPos == null) return;
 
-        // Check both foot and head of bed
         net.minecraft.core.Direction facing = state.getValue(BedBlock.FACING);
         BlockPos headPos = pos.relative(facing);
         if (!pos.equals(bedPos) && !headPos.equals(bedPos) && !pos.relative(facing.getOpposite()).equals(bedPos)) return;
@@ -245,7 +244,6 @@ public class BedEventHandler {
                 player.getYRot(), player.getXRot());
         player.sendSystemMessage(Component.literal("§aTeleported to your bed!"));
 
-        // Consume compass and reset upgrade to T0
         held.shrink(1);
         String team = BedUpgradeMenu.getTeamKey(player, session);
         session.getBedUpgradeManager().setTier(team, BedUpgradeManager.UpgradeType.TP_TO_BED, 0);

@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 
 public class GameDebugCommand {
 
-    // /game debug eliminate [name] — only kills the player, elimination handled by PlayerDeathHandler
+    // /game debug eliminate [name] only kills the player, elimination handled by PlayerDeathHandler
     public static int eliminate(CommandSourceStack source, String targetName) {
         GameSession session = GameManager.getSession();
         if (session == null || !session.isActive()) {
@@ -41,7 +41,7 @@ public class GameDebugCommand {
             return 0;
         }
 
-        // Only kill — PlayerDeathHandler will handle elimination logic based on bed state
+        // Only kill PlayerDeathHandler will handle elimination logic based on bed state
         target.hurt(target.damageSources().magic(), Float.MAX_VALUE);
         source.sendSuccess(() -> Component.literal("Killed " + target.getName().getString() + " (bed state determines elimination)."), false);
         return 1;
@@ -78,7 +78,7 @@ public class GameDebugCommand {
         return 1;
     }
 
-    // /game debug eliminatebed [name] — breaks bed (no drop), kills; PlayerDeathHandler handles elimination
+    // /game debug eliminatebed [name] breaks bed (no drop), kills; PlayerDeathHandler handles elimination
     public static int eliminateBed(CommandSourceStack source, String targetName) {
         GameSession session = GameManager.getSession();
         if (session == null || !session.isActive()) {
@@ -98,7 +98,7 @@ public class GameDebugCommand {
 
         UUID uuid = target.getUUID();
 
-        // Break bed blocks without dropping items — flag 18 = update (2) + suppress drops (16)
+        // Break bed blocks without dropping items flag 18 = update (2) + suppress drops (16)
         BlockPos footPos = session.getPlayerBed(uuid);
         if (footPos != null) {
             BlockState footState = session.getLevel().getBlockState(footPos);
@@ -117,7 +117,7 @@ public class GameDebugCommand {
             source.sendSuccess(() -> Component.literal(targetName + " had no placed bed — skipping bed break."), false);
         }
 
-        // Kill — PlayerDeathHandler will see bed is broken and permanently eliminate
+        // Kill PlayerDeathHandler will see bed is broken and permanently eliminate
         target.hurt(target.damageSources().magic(), Float.MAX_VALUE);
         source.sendSuccess(() -> Component.literal(targetName + "'s bed was broken and they were killed."), false);
         return 1;
@@ -270,7 +270,7 @@ public class GameDebugCommand {
                 if (p != null) GameCommand.unlockMovement(p);
             }
         }
-        // For deathmatch skip ENDING phase — not valid
+        // For deathmatch skip ENDING phase not valid
         if (session.isDeathmatch() && phase == GamePhase.ENDING) {
             source.sendFailure(Component.literal("Use WINNER_ANNOUNCED instead."));
             return 0;

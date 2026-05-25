@@ -37,7 +37,6 @@ public class MapRestoreManager {
         playerPlaced.clear();
     }
 
-    // ── Called when a player breaks a block ───────────────────────────────────
 
     public void onBlockBroken(BlockPos pos, BlockState state, ServerLevel level) {
         if (this.level == null || !this.level.equals(level)) return;
@@ -50,12 +49,12 @@ public class MapRestoreManager {
             }
             originalStates.put(pos.immutable(), new BlockSnapshot(state, nbt));
         } else if (playerPlaced.contains(pos)) {
-            // Player placed then broke — net effect is nothing, remove from placed
+            // Player placed then broke net effect is nothing, remove from placed
             playerPlaced.remove(pos);
         }
     }
 
-    // ── Called when a player places a block ───────────────────────────────────
+    // Called when a player places a block
 
     public void onBlockPlaced(BlockPos pos, ServerLevel level) {
         if (this.level == null || !this.level.equals(level)) return;
@@ -66,7 +65,7 @@ public class MapRestoreManager {
         // If original state exists, placing here is still tracked via originalStates
     }
 
-    // ── Restore all changes after game ends ───────────────────────────────────
+    // Restore all changes after game ends
 
     public void restore(ServerLevel level) {
         if (originalStates.isEmpty() && playerPlaced.isEmpty()) return;

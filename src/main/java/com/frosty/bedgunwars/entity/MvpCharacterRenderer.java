@@ -43,7 +43,7 @@ public class MvpCharacterRenderer extends GeoEntityRenderer<MvpCharacterEntity> 
         double camY = entity.getY() + (cameraBone.getPivotY() + cameraBone.getPosY()) / 16.0;
         double camZ = entity.getZ() - ((cameraBone.getPivotZ() + cameraBone.getPosZ()) / 16.0);
 
-        // getRotX/Y/Z() returns radians, negate for Blockbench→Minecraft handedness
+        // getRotX/Y/Z() returns radians, negate for BlockbenchtoMinecraft handedness
         // +180 on yaw so camera faces toward the character
         float pitch = (float) Math.toDegrees(cameraBone.getRotX());
         float yaw   = -(float) Math.toDegrees(cameraBone.getRotY()) + 180.0f;

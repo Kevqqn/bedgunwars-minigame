@@ -15,7 +15,7 @@ public class EndScoreboardClient {
 
     private static boolean active = false;
 
-    // Camera position — above trapped chest, facing beacon
+    // Camera position above trapped chest, facing beacon
     private static double camX, camY, camZ;
     private static float camPitch, camYaw;
 
@@ -29,7 +29,7 @@ public class EndScoreboardClient {
     private static TabStatsPacket cachedStats = null;
 
     // FOV
-//    private static float originalFov = 70.0f;
+// private static float originalFov = 70.0f;
     private static final float SCOREBOARD_FOV = 70.0f;
 
     public static void start(double cx, double cy, double cz,
@@ -122,7 +122,7 @@ public class EndScoreboardClient {
         long currentTick = mc.level != null ? mc.level.getGameTime() : 0;
         long elapsed = currentTick - startTick;
 
-        // Fade out: 150-160 ticks (clear → black)
+        // Fade out: 150-160 ticks (clear to black)
         if (elapsed >= FADE_OUT_START) {
             float fadeOut = Math.min(1f, (float)(elapsed - FADE_OUT_START) / (TOTAL_TICKS - FADE_OUT_START));
             int alpha = (int)(fadeOut * 255);

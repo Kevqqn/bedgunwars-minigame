@@ -63,7 +63,6 @@ public class BedUpgradeMenu {
         BedUpgradeManager.UpgradeType[] types = BedUpgradeManager.UpgradeType.values();
 
         // Slot layout
-        int[] upgradeSlots = {0, 1, 2, 3, 9, 10, 11, 12, 18}; // row1: 0-3, row2: 9-12, row3: 18
 
         for (int i = 0; i < upgradeSlots.length; i++) {
             BedUpgradeManager.UpgradeType type = types[i];
@@ -99,7 +98,7 @@ public class BedUpgradeMenu {
             container.setItem(upgradeSlots[i], display);
         }
 
-        // Buyable items — slot 23 = Obsidian, slot 25 = End Stone, slot 26 = Stone
+        // Buyable items slot 23 = Obsidian, slot 25 = End Stone, slot 26 = Stone
         ItemStack obsidian = new ItemStack(Items.OBSIDIAN, 8);
         obsidian.setHoverName(Component.literal("§eObsidian x8"));
         addLore(obsidian, "§7Cost: §a$800", "§7Click to buy");
@@ -115,7 +114,7 @@ public class BedUpgradeMenu {
         addLore(stone, "§7Cost: §a$100", "§7Click to buy");
         container.setItem(26, stone);
 
-        // Replenish ammo button — slot 24, ACTIVE phase only
+        // Replenish ammo button slot 24, ACTIVE phase only
         if (session.getPhase() == GamePhase.ACTIVE) {
             ItemStack ammoReplenish = new ItemStack(Items.ARROW);
             ammoReplenish.setHoverName(Component.literal("§bReplenish Ammo"));
@@ -309,7 +308,7 @@ public class BedUpgradeMenu {
         }
 
         if (allAmmoIds.isEmpty()) {
-            // No guns selected yet — show generic arrow placeholder
+            // No guns selected yet show generic arrow placeholder
             ItemStack placeholder = new ItemStack(net.minecraft.world.item.Items.ARROW);
             placeholder.setHoverName(Component.literal("§bReplenish Ammo"));
             addLore(placeholder, "§7Restores all ammo reserves to full.", "§7Cost: §a$500", "§7Click to replenish");

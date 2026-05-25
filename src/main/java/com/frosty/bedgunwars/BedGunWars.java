@@ -142,7 +142,7 @@ public class BedGunWars {
                 if (mc.player == null || mc.screen != null) return;
                 mc.setScreen(new MinimapSettingsScreen());
             }
-            // TAB stats — hold to show, release to close, only during active game
+            // TAB stats hold to show, release to close, only during active game
             if (event.getKey() == org.lwjgl.glfw.GLFW.GLFW_KEY_TAB) {
                 net.minecraft.client.Minecraft mc2 = net.minecraft.client.Minecraft.getInstance();
                 BedGunWars.LOGGER.info("[Tab] pressed: isStarted={}, hasData={}",
@@ -159,7 +159,7 @@ public class BedGunWars {
                     }
                 }
             }
-            // V key — killstreak activation overlay
+            // V key killstreak activation overlay
             if (com.frosty.bedgunwars.minimap.MinimapRenderer.isStarted()) {
                 if (KeyBindings.KILLSTREAK_KEY.consumeClick()) {
                     boolean wasOpen = com.frosty.bedgunwars.client.KillstreakHudRenderer.overlayOpen;
@@ -444,7 +444,7 @@ public class BedGunWars {
 
         );
 
-        // /bgwsetup <sub> — internal command for setup UI click events
+        // /bgwsetup <sub> internal command for setup UI click events
         event.getDispatcher().register(
                 Commands.literal("bgwsetup")
                         .requires(source -> source.hasPermission(2))
@@ -454,12 +454,12 @@ public class BedGunWars {
                                         StringArgumentType.getString(ctx, "sub"))))
         );
     }
-//    @SubscribeEvent
-//    public void onServerChat(net.minecraftforge.event.ServerChatEvent event) {
-//        ServerPlayer player = event.getPlayer();
-//        String message = event.getRawText();
-//        if (GameSetupUI.onChatMessage(player, message)) {
-//            event.setCanceled(true);
-//        }
-//    }
+// @SubscribeEvent
+// public void onServerChat(net.minecraftforge.event.ServerChatEvent event) {
+// ServerPlayer player = event.getPlayer();
+// String message = event.getRawText();
+// if (GameSetupUI.onChatMessage(player, message)) {
+// event.setCanceled(true);
+// }
+// }
 }

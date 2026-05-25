@@ -82,7 +82,7 @@ public class WinManager {
         }
         session.setWinnerUUID(mvpUUID);
         // MvpCutsceneManager.start() is called from GameTickHandler after title is shown
-        // Start skin prefetch on clients immediately — gives full title display time to fetch
+        // Start skin prefetch on clients immediately gives full title display time to fetch
         PacketHandler.sendToAllClients(session.getLevel().getServer(),
                 new com.frosty.bedgunwars.network.MvpSkinPrefetchPacket(
                         mvpUUID != null ? mvpUUID : new java.util.UUID(0, 0),

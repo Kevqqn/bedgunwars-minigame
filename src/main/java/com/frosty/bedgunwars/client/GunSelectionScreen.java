@@ -53,7 +53,7 @@ public class GunSelectionScreen extends Screen {
     private static final int MAX_THROWABLE_PICKS = 5;
 
 
-    // Layout constants — updated to match redesigned spec
+    // Layout constants updated to match redesigned spec
 
     private static final int LIST_X       = 10;
     private static final int LIST_Y       = 76;
@@ -65,7 +65,7 @@ public class GunSelectionScreen extends Screen {
     private static final int SB_W = 8;
     private static final int SB_X = LIST_X + LIST_W + 2;         // 212
 
-    private static final int CAT_X   = SB_X + SB_W;              // 220 — flush with scrollbar end
+    private static final int CAT_X   = SB_X + SB_W;              // 220 flush with scrollbar end
     private static final int CAT_Y   = LIST_Y;                    // 76
     private static final int CAT_W   = 70;
     private static final int CAT_H   = 14;
@@ -86,7 +86,7 @@ public class GunSelectionScreen extends Screen {
 
     // Dynamic layout helpers (depend on this.width / this.height)
     private int panelX()  { return this.width - PANEL_W - 6; }
-    private int detailX() { return CAT_X + CAT_W + 8; }          // ≈ 298
+    private int detailX() { return CAT_X + CAT_W + 8; }          // approx 298
     private int detailY() { return LIST_Y - 22; }                 // 54
     private int detailW() { return panelX() - detailX() - 6; }
     private int detailH() { return this.height - detailY() - 8; }
@@ -462,7 +462,7 @@ public class GunSelectionScreen extends Screen {
                     }
                 }
             } else {
-                // Gun picker cards — tooltip on gun icon area
+                // Gun picker cards tooltip on gun icon area
                 int cardW = 155, cardH = 110, gap = 8;
                 int availW = panelX() - 10 - LIST_X;
                 int totalW = MAX_GUN_SLOTS * cardW + (MAX_GUN_SLOTS - 1) * gap;
@@ -478,7 +478,7 @@ public class GunSelectionScreen extends Screen {
             }
         }
 
-        // Loadout panel — weapon slots
+        // Loadout panel weapon slots
         int px = panelX();
         int iy = LIST_Y - 22 + 20 + 6 + 12;
         for (int i = 0; i < selectedGuns.size(); i++) {
@@ -654,7 +654,7 @@ public class GunSelectionScreen extends Screen {
     }
 
 
-    // Detail / Hero pane — center column
+    // Detail / Hero pane center column
 
     private void renderDetailPane(GuiGraphics g, int mx, int my) {
         int x = detailX(), y = detailY(), w = detailW(), h = detailH();
@@ -662,7 +662,7 @@ public class GunSelectionScreen extends Screen {
         List<ResourceLocation> catalogue = activeCatalogue();
         List<ResourceLocation> selection = activeSelection();
 
-        // Priority: hover → focus → first selected → first filtered
+        // Priority: hover to focus to first selected to first filtered
         ResourceLocation item = null;
         if (hoveredItemId != null) item = hoveredItemId;
         else if (focusedItemId != null && catalogue.contains(focusedItemId)) item = focusedItemId;
@@ -815,7 +815,7 @@ public class GunSelectionScreen extends Screen {
         ItemStack stack = buildGunStack(gunId);
         Minecraft mc = Minecraft.getInstance();
 
-        // Get TACZ display — fall back to flat icon if unavailable
+        // Get TACZ display fall back to flat icon if unavailable
         java.util.Optional<GunDisplayInstance> displayOpt = TimelessAPI.getGunDisplay(stack);
         if (displayOpt.isEmpty()) {
             // Fallback: render flat icon centred
@@ -838,11 +838,11 @@ public class GunSelectionScreen extends Screen {
         int scissorH = (int) (bh * scale);
         RenderSystem.enableScissor(scissorX, scissorY, scissorW, scissorH);
 
-//        // Set up 3D item lighting
-//        RenderSystem.setShaderLights(
-//                new org.joml.Vector3f(-0.4f, -0.4f, -0.8f),
-//                new org.joml.Vector3f(0.4f, 0.4f, 0.2f)
-//        );
+// // Set up 3D item lighting
+// RenderSystem.setShaderLights(
+// new org.joml.Vector3f(-0.4f, -0.4f, -0.8f),
+// new org.joml.Vector3f(0.4f, 0.4f, 0.2f)
+// );
 
         // Build PoseStack for the render
         PoseStack poseStack = new PoseStack();
@@ -855,7 +855,7 @@ public class GunSelectionScreen extends Screen {
 
         // Scale
         float baseScale = (bh * 0.35f) * previewScale;
-        // scale(-1, 1, 1): flips X — fixes winding order (inside-out) AND one axis flip
+        // scale(-1, 1, 1): flips X fixes winding order (inside-out) AND one axis flip
         // then ZP 180° rotation handles the upside-down
         poseStack.scale(-baseScale, -baseScale, -baseScale);
         poseStack.mulPose(Axis.XP.rotationDegrees(180f));
@@ -1302,7 +1302,7 @@ public class GunSelectionScreen extends Screen {
             g.renderOutline(x, y, contentW, 50, 0xFFFFAA00);
             g.drawString(font, "§eLOADOUT NAME", x + 6, y + 4, 0xFFAA00);
             g.drawString(font, "§f" + loadoutNameBuffer + "§e|", x + 6, y + 18, 0xFFFFFF);
-            // Hint row — moved 8 px down relative to the original, now sits inside the 50px box
+            // Hint row moved 8 px down relative to the original, now sits inside the 50px box
             g.drawCenteredString(font, "§eEnter §7save  ·  §eEsc §7cancel",
                     x + contentW / 2, y + 38, 0x555555);
             return;
@@ -1334,7 +1334,7 @@ public class GunSelectionScreen extends Screen {
             g.fill(x, sy, x + contentW, sy + cardH, bgColor);
             g.renderOutline(x, sy, contentW, cardH, bdColor);
 
-            // Left accent — gold normally, green when selected
+            // Left accent gold normally, green when selected
             int accentColor = isSelected ? 0xFF33BB33 : 0xFFFFAA00;
             g.fill(x, sy, x + 4, sy + cardH, accentColor);
 
@@ -1366,7 +1366,7 @@ public class GunSelectionScreen extends Screen {
                 } catch (Exception ignored) {}
             }
 
-            // Throwable icons — second row, below gun names
+            // Throwable icons second row, below gun names
             int thrRowY = sy + 40;
             int thrX = x + 12;
             for (int ti = 0; ti < loadout.throwables.size(); ti++) {
@@ -1598,7 +1598,7 @@ public class GunSelectionScreen extends Screen {
                     confirmDeleteIndex = i;
                     return true;
                 }
-                // Card click — select and apply
+                // Card click select and apply
                 if (mx >= x && mx < x + contentW && my >= sy && my < sy + cardH) {
                     selectedLoadoutIndex = i;
                     PacketHandler.CHANNEL.sendToServer(new com.frosty.bedgunwars.network.LoadoutPacket(
@@ -1727,7 +1727,7 @@ public class GunSelectionScreen extends Screen {
             return true;
         }
 
-        // 3D preview drag — start when clicking inside the preview box on guns/throwables tab
+        // 3D preview drag start when clicking inside the preview box on guns/throwables tab
         if ((activeTab == 0 || activeTab == 2) && activeTab == 0 && button == 0
                 && mx >= previewBoxX && mx < previewBoxX + previewBoxW
                 && my >= previewBoxY && my < previewBoxY + previewBoxH) {
@@ -1818,7 +1818,7 @@ public class GunSelectionScreen extends Screen {
 
     @Override
     public void mouseMoved(double mx, double my) {
-        // Hover sound — fire when hovering a new interactive element
+        // Hover sound fire when hovering a new interactive element
         String zone = computeHoverZone((int) mx, (int) my);
         if (zone != null && !zone.equals(lastHoveredZoneForSound)) {
             playUiHover();

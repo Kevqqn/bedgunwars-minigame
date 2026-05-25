@@ -19,7 +19,6 @@ public class BedUpgradeManager {
 
     // Prices
     public static final int[][] PRICES = {
-            // T1,   T2,   T3,   T4,   T5,   T6
             {100,  250,  250,  400,  800, 1000}, // MINING_FATIGUE
             {500,    0,    0,    0,    0,    0}, // ALARM
             {350,    0,    0,    0,    0,    0}, // SLOWNESS

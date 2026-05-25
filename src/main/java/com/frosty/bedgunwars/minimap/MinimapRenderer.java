@@ -29,7 +29,7 @@ public class MinimapRenderer {
     public static final Set<UUID> visibleEnemyDots = ConcurrentHashMap.newKeySet();
     public static boolean showAllEnemyDots = false;
 
-    // UAV snapshot — stores last known enemy positions, refreshed every 3s
+    // UAV snapshot stores last known enemy positions, refreshed every 3s
     // Format: UUID -> [x, z, ticksVisible] (ticksVisible counts down for fade)
     public static final java.util.concurrent.ConcurrentHashMap<UUID, double[]> uavSnapshots =
             new java.util.concurrent.ConcurrentHashMap<>();
@@ -52,7 +52,7 @@ public class MinimapRenderer {
 
     public static boolean isStarted() { return started; }
 
-    // Called from GameTickHandler (server tick thread) — only sets flags,
+    // Called from GameTickHandler (server tick thread) only sets flags,
     // never touches GL or DynamicTexture
 
 
@@ -82,7 +82,7 @@ public class MinimapRenderer {
         uavSnapshots.clear();
         uavSnapshotCooldown = 0;
     }
-    // Render event — everything GL-touching happens here (render thread)
+    // Render event everything GL-touching happens here (render thread)
 
     @SubscribeEvent
     public void onRenderGuiOverlay(RenderGuiOverlayEvent.Post event) {
@@ -113,7 +113,7 @@ public class MinimapRenderer {
             feedLoadedChunks(mc);
         }
 
-        // Composite pending chunks → GPU
+        // Composite pending chunks to GPU
         TEXTURE.update(SCANNER);
 
         // Screen layout
@@ -149,17 +149,17 @@ public class MinimapRenderer {
         // Border
         gui.fill(mapX - 1, mapY - 1, mapX + mapSize + 1, mapY + mapSize + 1, 0xFF000000);
 
-        // Map texture — blit viewport
+        // Map texture blit viewport
         gui.blit(TEXTURE.getTextureLocation(),
                 mapX, mapY, mapSize, mapSize,
                 vpX, vpZ, vpSize, vpSize,
                 texSize, texSize);
 
-        // Own player dot — always centered
-        // Own player dot — centered, but offset if viewport is clamped at texture edge
+        // Own player dot always centered
+        // Own player dot centered, but offset if viewport is clamped at texture edge
         int playerTexX = (int) playerX - TEXTURE.getOriginX();
         int playerTexZ = (int) playerZ - TEXTURE.getOriginZ();
-//        float scale = (float) mapSize / (halfBlocks * 2);
+// float scale = (float) mapSize / (halfBlocks * 2);
         int dotX = mapX + Math.round((playerTexX - vpX) * scale);
         int dotZ = mapY + Math.round((playerTexZ - vpZ) * scale);
         gui.fill(dotX - 2, dotZ - 2, dotX + 2, dotZ + 2, 0xFF00FF00);
@@ -174,7 +174,7 @@ public class MinimapRenderer {
     }
 
 
-    // Chunk feeding — render thread, once per second
+    // Chunk feeding render thread, once per second
 
 
     private void feedLoadedChunks(Minecraft mc) {

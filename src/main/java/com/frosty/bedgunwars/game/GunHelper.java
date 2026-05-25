@@ -94,12 +94,12 @@ public class GunHelper {
     }
 
 // Unused
-//    public static ItemStack buildCreativeAmmoBox() {
-//        ItemStack item = new ItemStack(ForgeRegistries.ITEMS.getValue(
-//                ResourceLocation.fromNamespaceAndPath("tacz", "ammo_box")));
-//        item.getOrCreateTag().putBoolean("AllTypeCreative", true);
-//        return item;
-//    }
+// public static ItemStack buildCreativeAmmoBox() {
+// ItemStack item = new ItemStack(ForgeRegistries.ITEMS.getValue(
+// ResourceLocation.fromNamespaceAndPath("tacz", "ammo_box")));
+// item.getOrCreateTag().putBoolean("AllTypeCreative", true);
+// return item;
+// }
 
     
     // Gun stats for tooltip
@@ -113,7 +113,7 @@ public class GunHelper {
                 Object data = index.getGunData();
                 if (data == null) return;
                 Class<?> cls = data.getClass();
-                // Damage — via BulletData.getDamageAmount()
+                // Damage via BulletData.getDamageAmount()
                 try {
                     Object bulletData = cls.getMethod("getBulletData").invoke(data);
                     if (bulletData != null) {
@@ -130,7 +130,7 @@ public class GunHelper {
                 int mag = reflectInt(cls, data, "getAmmoAmount", "getMagazineSize", "getAmmoSize");
                 if (mag > 0) lines.add(stat("Magazine", String.valueOf(mag)));
 
-                // Reload time (ticks → seconds)
+                // Reload time (ticks to seconds)
                 int reloadTicks = reflectInt(cls, data, "getReloadTime", "getNormalReloadTime");
                 if (reloadTicks > 0) {
                     lines.add(stat("Reload", String.format("%.1fs", reloadTicks / 20.0f)));

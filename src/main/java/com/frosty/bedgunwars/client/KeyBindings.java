@@ -33,11 +33,11 @@ public class KeyBindings {
             GLFW.GLFW_KEY_V,
             "key.categories.bedgunwars"
     );
-//            "key.bedgunwars.tab_stats",
-//            net.minecraftforge.client.settings.KeyConflictContext.IN_GAME,
-//            net.minecraftforge.client.settings.KeyModifier.NONE,
-//            InputConstants.Type.KEYSYM,
-//            GLFW.GLFW_KEY_TAB,
-//            "key.categories.bedgunwars"
-//    );
+// "key.bedgunwars.tab_stats",
+// net.minecraftforge.client.settings.KeyConflictContext.IN_GAME,
+// net.minecraftforge.client.settings.KeyModifier.NONE,
+// InputConstants.Type.KEYSYM,
+// GLFW.GLFW_KEY_TAB,
+// "key.categories.bedgunwars"
+// );
 }

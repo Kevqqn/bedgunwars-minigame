@@ -24,7 +24,6 @@ public class PlayerDisconnectHandler {
 
         if (uuid.equals(session.getHostUuid())) {
             session.startHostDisconnectTimer();
-            // Broadcast warning to all players
             for (net.minecraft.server.level.ServerPlayer p : player.getServer().getPlayerList().getPlayers()) {
                 p.sendSystemMessage(Component.literal("§c[NOTICE] §fHost disconnected. Game will end in 60 seconds if host doesn't reconnect."));
             }
@@ -32,13 +31,11 @@ public class PlayerDisconnectHandler {
         }
 
         if (phase == GamePhase.STARTING || phase == GamePhase.WAITING_PLAYERS || phase == GamePhase.PREPARATION) {
-            // Don't remove from session — just mark as temporarily disconnected
             session.getDisconnectedDuringPrep().add(uuid);
             return;
         }
 
         if (phase == GamePhase.ACTIVE && session.getPlayers().contains(uuid) && !session.isEliminated(uuid)) {
-            if (!session.tryLockDisconnect(uuid)) return; // already being processed
             if (session.isBedBroken(uuid)) {
                 session.handlePlayerDisconnect(uuid, true);
                 WinManager.checkWinner(session);

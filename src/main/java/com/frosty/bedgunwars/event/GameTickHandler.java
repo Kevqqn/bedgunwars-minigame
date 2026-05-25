@@ -41,7 +41,6 @@ public class GameTickHandler {
     @SuppressWarnings("unused")
     @SubscribeEvent
     public void onServerTick(TickEvent.ServerTickEvent event) {
-        if (event.phase != TickEvent.Phase.END) return; // ← move this to the TOP
 
         // Process scheduled tasks
         for (int i = taskDelays.size() - 1; i >= 0; i--) {
@@ -86,7 +85,7 @@ public class GameTickHandler {
                     "Waiting for players: " + secondsLeft + "s | " + joined + "/" + online + " joined",
                     progress);
 
-            // Broadcast join prompt at key intervals
+            // Broadcast join prompt at intervals
             if (ticksLeft == 25 * 20 || ticksLeft == 15 * 20 || ticksLeft == 10 * 20 || ticksLeft == 5 * 20) {
                 for (ServerPlayer p : event.getServer().getPlayerList().getPlayers()) {
                     if (!session.isJoined(p.getUUID())) {
@@ -96,7 +95,7 @@ public class GameTickHandler {
                 }
             }
 
-            // All online players joined — start after minimum 5s wait
+            // Joined players wait time skip
             boolean allJoined = online > 0 && joined >= online;
             if (allJoined && ticksLeft <= session.getWaitingMinTicks()) {
                 BossBarManager.remove(event.getServer());
@@ -170,7 +169,7 @@ public class GameTickHandler {
                 event.getServer().getGameRules().getRule(GameRules.RULE_KEEPINVENTORY).set(true, event.getServer());
                 for (ServerPlayer p : event.getServer().getPlayerList().getPlayers()) {
                     SoundHelper.playNoteClick(p, SoundHelper.noteToPitch(25));
-                    // Unlock movement for deathmatch
+                    // Movement release on DM mode
                     if (session.isDeathmatch()) {
                         com.frosty.bedgunwars.command.GameCommand.unlockMovement(p);
                     }
@@ -261,7 +260,7 @@ public class GameTickHandler {
                 tickBedUpgrades(event.getServer(), session);
             }
             session.getKillstreakManager().tick(event.getServer(), session);
-            // Drop spawn immunity if deathmatch player moves
+            // "What?! How is he still immune!!" - A frustrated player because the spawn immunity is not balanced literally on playtest
             if (session.isDeathmatch()) {
                 for (java.util.UUID uuid : session.getPlayers()) {
                     if (!session.isSpawnImmune(uuid)) continue;
@@ -272,7 +271,6 @@ public class GameTickHandler {
                     if (last != null && !cur.equals(last)) {
                         session.clearSpawnImmune(uuid);
                         p.removeEffect(net.minecraft.world.effect.MobEffects.DAMAGE_RESISTANCE);
-                        // sendNotice isn't accessible here, use direct message
                         p.sendSystemMessage(net.minecraft.network.chat.Component.literal("§6[NOTICE] §fSpawn immunity dropped!"));
                     }
                     session.getLastKnownPositions().put(uuid, cur);
@@ -307,7 +305,7 @@ public class GameTickHandler {
             WinManager.checkWinner(session);
             GameScoreboard.update(session);
             session.getKillstreakManager().tick(event.getServer(), session);
-            // Sync border to all players every second so lerp animation shows correctly
+            // Border sync to all players every 1s
             if (shrinkTicks % 20 == 0) {
                 net.minecraft.world.level.border.WorldBorder border =
                         session.getLevel().getWorldBorder();
@@ -323,7 +321,7 @@ public class GameTickHandler {
             GameScoreboard.update(session);
             session.removeNametagTeams(event.getServer());
 
-            // Send pre-fade 10 ticks before cutscene (winnerDelay == 11)
+            // Fade transition for cutscene
             if (session.getWinnerDelayTicks() == 11) {
                 PacketHandler.sendToAllClients(event.getServer(), new com.frosty.bedgunwars.network.MvpPreFadePacket());
             }
@@ -484,7 +482,7 @@ public class GameTickHandler {
                     }
                 }
             } else {
-                // Player moved — reset counter and cancel warning if active
+                // Cancel and reset if player moved
                 if (warned.contains(uuid)) {
                     warned.remove(uuid);
                     player.sendSystemMessage(Component.literal(
@@ -531,7 +529,6 @@ public class GameTickHandler {
 
             double distToBed = player.blockPosition().distSqr(bedPos);
 
-            // Healing Station
             int healTier = mgr.getTier(team, BedUpgradeManager.UpgradeType.HEALING_STATION);
             if (healTier > 0) {
                 boolean inRange = switch (healTier) {
@@ -550,11 +547,10 @@ public class GameTickHandler {
                 }
             }
 
-            // Check enemies near bed (for traps)
             for (UUID enemyUuid : session.getPlayers()) {
                 if (session.isEliminated(enemyUuid)) continue;
                 if (enemyUuid.equals(uuid)) continue;
-                // Skip teammates
+                // Skip if teammate
                 if (session.getMode() == GameModeType.TEAMS) {
                     String myTeam = session.getPlayerTeam(uuid);
                     String enemyTeam = session.getPlayerTeam(enemyUuid);
@@ -568,7 +564,6 @@ public class GameTickHandler {
                 int mfTier = mgr.getTier(team, BedUpgradeManager.UpgradeType.MINING_FATIGUE);
                 if (mfTier > 0 && enemyDistToBed <= 3 * 3) {
                     if (mfTier == 6 && distToBed > 10 * 10) {
-                        // T6 always-on requires owner nearby, skip
                     } else {
                         int[] mfDuration = {0, 40, 80, 120, 160, 120, Integer.MAX_VALUE};
                         int[] mfLevel    = {1,  1,  2,   2,   2,   3,  2};
@@ -609,7 +604,7 @@ public class GameTickHandler {
                 }
             }
 
-            // Bed Sense (offensive, alert player near enemy beds)
+            // Bed sense
             int bedSenseTier = mgr.getTier(team, BedUpgradeManager.UpgradeType.BED_SENSE);
             if (bedSenseTier > 0) {
                 for (UUID enemyUuid : session.getPlayers()) {
@@ -623,7 +618,7 @@ public class GameTickHandler {
                     if (enemyBed == null) continue;
                     double distToEnemyBed = player.blockPosition().distSqr(enemyBed);
                     if (distToEnemyBed <= 9 * 9 && !session.hasBedSenseActive(uuid)) {
-                        // trigger bed sense — initial alert
+                        // Bed sense trigger
                         session.setBedSenseTimer(uuid, 8 * 20);
                         player.sendSystemMessage(Component.literal("§e[BED SENSE] §fEnemy bed detected nearby!"));
                         mgr.setTier(team, BedUpgradeManager.UpgradeType.BED_SENSE, 0);
@@ -632,7 +627,7 @@ public class GameTickHandler {
                 }
             }
 
-            // tick active bed sense - proximity beeping + actionbar distance
+            // tick active bed sense, now with proximity beeping and actionbar!
             if (session.hasBedSenseActive(uuid)) {
                 // find closest enemy bed
                 BlockPos closestBed = null;
@@ -659,13 +654,12 @@ public class GameTickHandler {
                     player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket(
                             Component.literal("§e[BED SENSE] §fEnemy bed ~" + blockDist + " blocks away §7(" + secsLeft + "s)")));
 
-                    // proximity beeping — faster and higher pitch the closer you are
+                    // prox beep bed sense
                     // beep every N ticks based on distance: 1 block = every 2t, 9 blocks = every 18t
                     int beepInterval = Math.max(2, blockDist * 2);
                     if (timerTicks % beepInterval == 0) {
-                        // pitch scales from low (far) to high (close): 9 blocks = pitch 10, 1 block = pitch 24
+                        // Bed sense prox beep pitch
                         int pitch = Math.max(10, 24 - blockDist);
-                        // play sound at bed position so spatial audio gives direction naturally
                         player.serverLevel().playSound(player, closestBed,
                                 net.minecraft.sounds.SoundEvents.NOTE_BLOCK_PLING.get(),
                                 net.minecraft.sounds.SoundSource.PLAYERS,
@@ -675,7 +669,6 @@ public class GameTickHandler {
 
                 session.tickBedSenseTimer(uuid);
 
-                // timer expired — clear actionbar
                 if (!session.hasBedSenseActive(uuid)) {
                     player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket(
                             Component.literal("")));
@@ -690,7 +683,6 @@ public class GameTickHandler {
         double currentSize = border.getSize();
         double newSize = Math.max(10, currentSize - (targetSize * 2.0));
         border.lerpSizeBetween(currentSize, newSize, durationSeconds * 1000L);
-        // Sync to all players in this dimension
         net.minecraft.network.protocol.game.ClientboundInitializeBorderPacket packet =
                 new net.minecraft.network.protocol.game.ClientboundInitializeBorderPacket(border);
         for (net.minecraft.server.level.ServerPlayer p : level.players()) {

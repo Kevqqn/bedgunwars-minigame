@@ -63,7 +63,7 @@ public class GameScoreboard {
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i);
             if (i >= prev.size() || !line.equals(prev.get(i))) {
-                // Remove old entry at this position if it existed
+                // Remove old entry here if it existed
                 if (i < prev.size() && !prev.get(i).isEmpty()) {
                     player.connection.send(new ClientboundSetScorePacket(
                             net.minecraft.server.ServerScoreboard.Method.REMOVE,
@@ -85,7 +85,7 @@ public class GameScoreboard {
         int total = session.getPlayers().size();
         int alive = total - session.getEliminatedPlayers().size();
 
-        // Deathmatch scoreboard
+        // DM scoreboard
         if (session.isDeathmatch()) {
             return buildDeathmatchLines(player, session);
         }
@@ -140,7 +140,7 @@ public class GameScoreboard {
         lines.add("§7§m----------");
         lines.add("§eKills");
 
-        // Sort players: alive first, then by kill count descending
+        // sort player, alive then by kill count
         List<UUID> sorted = session.getPlayers().stream()
                 .sorted((a, b) -> {
                     boolean aAlive = !session.isEliminated(a);
@@ -223,7 +223,7 @@ public class GameScoreboard {
                 lines.add(color + team + " §f" + kills + "§7/" + killLimit);
             }
         } else {
-            // Solo — top kills leaderboard
+            // solo most kills leaderboard
             lines.add("§eKills §7(" + killLimit + " to win):");
             session.getPlayers().stream()
                     .sorted((a, b) -> Integer.compare(
@@ -243,7 +243,7 @@ public class GameScoreboard {
 
         lines.add("§7§m----------");
 
-        // Player's own stats
+        // Player own stats
         String myKillKey = isTeams ? session.getPlayerTeam(player.getUUID()) : player.getUUID().toString();
         int myKills = myKillKey != null ? session.getDeathmatchManager().getKills(myKillKey) : 0;
         lines.add("§eYour kills: §a" + myKills);

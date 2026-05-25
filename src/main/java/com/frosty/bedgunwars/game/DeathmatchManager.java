@@ -20,10 +20,10 @@ public class DeathmatchManager {
 
     public void clearKillsOnly() {
         killCounts.clear();
-        // Intentionally keep allBeacons and teamBeacons — set during /game border
+        // Intentionally keep allBeacons and teamBeacons set during /game border
     }
 
-    // ── Kill tracking 
+    // Kill tracking
 
     public void addKill(String key) {
         killCounts.merge(key, 1, Integer::sum);

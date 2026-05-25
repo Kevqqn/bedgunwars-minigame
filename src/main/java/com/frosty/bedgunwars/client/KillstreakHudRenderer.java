@@ -45,7 +45,7 @@ public class KillstreakHudRenderer {
         ClientTips.renderHud(gui);
     }
 
-    // ── Bottom-left HUD ──
+    // Bottom-left HUD
 
     private void renderHud(GuiGraphics gui, Minecraft mc, int H) {
         int W = mc.getWindow().getGuiScaledWidth();
@@ -78,7 +78,7 @@ public class KillstreakHudRenderer {
             gui.drawString(mc.font, "§eKS: §f" + streak, x0, y0 - 10, 0xFFFFFF);
     }
 
-    // ── Centered activation overlay ───────────────────────────────────────────
+    // Centered activation overlay
 
     private void renderOverlay(GuiGraphics gui, Minecraft mc, int W, int H) {
         KillstreakType[] types = KillstreakType.values();
@@ -123,7 +123,7 @@ public class KillstreakHudRenderer {
         };
     }
 
-    // ── Scroll & activate 
+    // Scroll & activate
 
     public static void scrollSelection(double delta) {
         int n = KillstreakType.values().length;

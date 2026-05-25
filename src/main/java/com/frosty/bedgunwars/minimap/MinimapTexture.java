@@ -88,7 +88,7 @@ public class MinimapTexture {
         NativeImage img = texture.getPixels();
         if (img == null) return;
 
-        // Drain into local list atomically — no concurrent modification
+        // Drain into local list atomically no concurrent modification
         List<ChunkPos> toProcess = new ArrayList<>(pendingComposite);
         pendingComposite.removeAll(toProcess);
         if (!toProcess.isEmpty()) {

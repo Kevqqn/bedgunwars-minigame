@@ -39,7 +39,7 @@ public class MvpCutsceneClient {
     private static final ResourceLocation SKIN_RL =
             ResourceLocation.fromNamespaceAndPath("bedgunwars", "mvp_winner_skin");
 
-    // HUD timing — all relative to startTick (which is the game tick when entities spawn)
+    // HUD timing all relative to startTick (which is the game tick when entities spawn)
     // 2.75s = 55 ticks after animation starts
     public static final int HUD_SHOW_TICK = 55;
     // Fade to black: last 5 frames of 136-tick animation
