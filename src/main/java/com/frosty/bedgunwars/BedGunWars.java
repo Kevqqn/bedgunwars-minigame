@@ -30,7 +30,7 @@ import net.minecraftforge.fml.common.Mod;
 
 import java.util.UUID;
 
-@Mod(BedGunWars.MOD_ID)
+@Mod(BedGunWars.MOD_ID) // I eat ass
 public class BedGunWars {
     public static final String MOD_ID = "bedgunwars";
 
